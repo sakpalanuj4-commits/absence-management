@@ -1,14 +1,32 @@
 """Django settings for the Absence Management System."""
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "dev-only-insecure-key-change-me"
+load_dotenv(BASE_DIR / ".env")
 
-DEBUG = True
 
-ALLOWED_HOSTS = []
+def env(name, default=None):
+    return os.environ.get(name, default)
+
+
+def env_bool(name, default=False):
+    return env(name, str(default)).lower() in ("1", "true", "yes", "on")
+
+
+SECRET_KEY = env("SECRET_KEY", "dev-only-insecure-key-change-me")
+
+DEBUG = env_bool("DEBUG", True)
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in env("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 
 INSTALLED_APPS = [
@@ -50,12 +68,28 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if env("DB_ENGINE", "mysql") == "sqlite":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": env("DB_NAME", "absence_management"),
+            "USER": env("DB_USER", "root"),
+            "PASSWORD": env("DB_PASSWORD", ""),
+            "HOST": env("DB_HOST", "127.0.0.1"),
+            "PORT": env("DB_PORT", "3306"),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -67,7 +101,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 LANGUAGE_CODE = "en-gb"
-TIME_ZONE = "Europe/London"
+TIME_ZONE = env("TIME_ZONE", "Europe/London")
 USE_I18N = True
 USE_TZ = True
 
