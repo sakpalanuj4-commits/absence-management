@@ -6,3 +6,6 @@ __pycache__/
 db.sqlite3
 staticfiles/
 media/
+
+# Tailwind CLI binary — downloaded by setup, too large to commit
+tools/tailwindcss
