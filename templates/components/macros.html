@@ -1,0 +1,24 @@
+{% macro field(bound_field) %}
+  <div>
+    <label class="label" for="{{ bound_field.id_for_label }}">{{ bound_field.label }}</label>
+    {{ bound_field }}
+    {% if bound_field.help_text %}
+      <p class="mt-1 text-xs text-slate-500">{{ bound_field.help_text }}</p>
+    {% endif %}
+    {% for error in bound_field.errors %}
+      <p class="mt-1 text-xs text-rose-600">{{ error }}</p>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+
+{% macro form_fields(form) %}
+  {% if form.non_field_errors() %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+      {% for error in form.non_field_errors() %}<p>{{ error }}</p>{% endfor %}
+    </div>
+  {% endif %}
+  {% for bound_field in form %}
+    {{ field(bound_field) }}
+  {% endfor %}
+{% endmacro %}

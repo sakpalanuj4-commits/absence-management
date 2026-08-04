@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import form_fields %}
+{% set page_id = 'profile' %}
+{% block title %}Profile{% endblock %}
+{% block heading %}My profile{% endblock %}
+
+{% block content %}
+<div class="grid gap-4 lg:grid-cols-3">
+  <form method="post" class="card card-body space-y-4 lg:col-span-2">
+    {{ csrf_input }}
+    {{ form_fields(form) }}
+    <button type="submit" class="btn-primary">Save changes</button>
+  </form>
+
+  <div class="card card-body space-y-3 text-sm">
+    <div>
+      <p class="text-xs uppercase tracking-wide text-slate-500">Username</p>
+      <p class="font-medium">{{ request.user.username }}</p>
+    </div>
+    <div>
+      <p class="text-xs uppercase tracking-wide text-slate-500">Role</p>
+      <p class="font-medium">{{ request.user.get_role_display() }}</p>
+    </div>
+    <div>
+      <p class="text-xs uppercase tracking-wide text-slate-500">Last signed in</p>
+      <p class="font-medium">{{ request.user.last_login.strftime('%d %b %Y, %H:%M') if request.user.last_login else '-' }}</p>
+    </div>
+    <a href="{{ url('accounts:password_change') }}" class="btn-secondary">Change password</a>
+  </div>
+</div>
+{% endblock %}
