@@ -7,3 +7,6 @@ urlpatterns = [
     path("django-admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
 ]
+
+handler403 = "config.errors.permission_denied"
+handler404 = "config.errors.page_not_found"
