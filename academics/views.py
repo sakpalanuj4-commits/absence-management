@@ -6,8 +6,14 @@ from django.views.decorators.http import require_POST
 
 from accounts.permissions import admin_required, require_course_access, staff_required
 
-from .forms import CourseForm, DepartmentForm, EnrolmentForm
-from .models import Course, Department, Enrolment
+from .forms import (
+    ClassSessionForm,
+    CourseForm,
+    DepartmentForm,
+    EnrolmentForm,
+    SessionGeneratorForm,
+)
+from .models import ClassSession, Course, Department, Enrolment
 
 
 @admin_required
@@ -112,3 +118,75 @@ def enrolment_remove(request, pk):
         request, f"{enrolment.student.display_name} removed from the course."
     )
     return redirect("academics:course_detail", pk=course_pk)
+
+
+@staff_required
+def session_list(request, course_pk):
+    course = get_object_or_404(Course, pk=course_pk)
+    require_course_access(request.user, course)
+    sessions = course.sessions.all()
+    page = Paginator(sessions, 30).get_page(request.GET.get("page"))
+    return render(
+        request, "academics/session_list.html", {"course": course, "page": page}
+    )
+
+
+@staff_required
+def session_form(request, course_pk, pk=None):
+    course = get_object_or_404(Course, pk=course_pk)
+    require_course_access(request.user, course)
+    session = get_object_or_404(ClassSession, pk=pk, course=course) if pk else None
+    form = ClassSessionForm(request.POST or None, instance=session)
+    if request.method == "POST" and form.is_valid():
+        session = form.save(commit=False)
+        session.course = course
+        session.save()
+        messages.success(request, "Session saved.")
+        return redirect("academics:session_list", course_pk=course.pk)
+    return render(
+        request,
+        "academics/session_form.html",
+        {"form": form, "course": course, "object": session},
+    )
+
+
+@staff_required
+def session_generate(request, course_pk):
+    course = get_object_or_404(Course, pk=course_pk)
+    require_course_access(request.user, course)
+    form = SessionGeneratorForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        created, skipped = 0, 0
+        for day in form.dates():
+            _, was_created = ClassSession.objects.get_or_create(
+                course=course,
+                date=day,
+                start_time=form.cleaned_data["start_time"],
+                defaults={
+                    "end_time": form.cleaned_data["end_time"],
+                    "room": form.cleaned_data["room"],
+                },
+            )
+            created += 1 if was_created else 0
+            skipped += 0 if was_created else 1
+        messages.success(
+            request,
+            f"{created} sessions created"
+            + (f", {skipped} already existed." if skipped else "."),
+        )
+        return redirect("academics:session_list", course_pk=course.pk)
+    return render(
+        request, "academics/session_generate.html", {"form": form, "course": course}
+    )
+
+
+@staff_required
+@require_POST
+def session_cancel(request, pk):
+    session = get_object_or_404(ClassSession, pk=pk)
+    require_course_access(request.user, session.course)
+    session.is_cancelled = not session.is_cancelled
+    session.save(update_fields=["is_cancelled"])
+    state = "cancelled" if session.is_cancelled else "reinstated"
+    messages.success(request, f"Session {state}.")
+    return redirect("academics:session_list", course_pk=session.course_id)

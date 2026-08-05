@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, empty_state %}
+{% set page_id = 'courses' %}
+{% block title %}Sessions - {{ course.code }}{% endblock %}
+{% block heading %}Sessions - {{ course.code }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap justify-end gap-2">
+  <a href="{{ url('academics:course_detail', kwargs={'pk': course.pk}) }}" class="btn-secondary">Back to course</a>
+  <a href="{{ url('academics:session_generate', kwargs={'course_pk': course.pk}) }}" class="btn-secondary">Generate weekly</a>
+  <a href="{{ url('academics:session_create', kwargs={'course_pk': course.pk}) }}" class="btn-primary">Add session</a>
+</div>
+
+{% if page.object_list %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Register</th><th class="text-right">Actions</th></tr></thead>
+    <tbody>
+      {% for session in page.object_list %}
+      <tr class="{{ 'opacity-60' if session.is_cancelled }}">
+        <td class="font-medium text-slate-900">{{ session.date.strftime('%a %d %b %Y') }}</td>
+        <td class="text-slate-600">{{ session.start_time.strftime('%H:%M') }}-{{ session.end_time.strftime('%H:%M') }}</td>
+        <td class="text-slate-600">{{ session.room or '-' }}</td>
+        <td>
+          {% if session.is_cancelled %}
+            <span class="badge bg-slate-200 text-slate-600">Cancelled</span>
+          {% elif session.marked %}
+            <span class="badge bg-emerald-100 text-emerald-800">{{ session.marked }} marked</span>
+          {% else %}
+            <span class="badge bg-amber-100 text-amber-800">Not marked</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            {% if not session.is_cancelled %}
+              <a href="{{ url('attendance:register', kwargs={'session_pk': session.pk}) }}" class="btn-primary text-xs">Mark</a>
+            {% endif %}
+            <a href="{{ url('academics:session_edit', kwargs={'course_pk': course.pk, 'pk': session.pk}) }}" class="btn-secondary text-xs">Edit</a>
+            <form method="post" action="{{ url('academics:session_cancel', kwargs={'pk': session.pk}) }}">
+              {{ csrf_input }}
+              <button class="{{ 'btn-secondary' if session.is_cancelled else 'btn-danger' }} text-xs">
+                {{ 'Reinstate' if session.is_cancelled else 'Cancel' }}
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No sessions scheduled for this course.', url('academics:session_generate', kwargs={'course_pk': course.pk}), 'Generate weekly sessions') }}
+{% endif %}
+{% endblock %}

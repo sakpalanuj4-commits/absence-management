@@ -14,4 +14,21 @@ urlpatterns = [
     path("courses/<int:pk>/edit/", views.course_form, name="course_edit"),
     path("courses/<int:course_pk>/enrol/", views.enrolment_add, name="enrolment_add"),
     path("enrolments/<int:pk>/remove/", views.enrolment_remove, name="enrolment_remove"),
+    path("courses/<int:course_pk>/sessions/", views.session_list, name="session_list"),
+    path(
+        "courses/<int:course_pk>/sessions/add/",
+        views.session_form,
+        name="session_create",
+    ),
+    path(
+        "courses/<int:course_pk>/sessions/<int:pk>/edit/",
+        views.session_form,
+        name="session_edit",
+    ),
+    path(
+        "courses/<int:course_pk>/sessions/generate/",
+        views.session_generate,
+        name="session_generate",
+    ),
+    path("sessions/<int:pk>/cancel/", views.session_cancel, name="session_cancel"),
 ]

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import form_fields %}
+{% set page_id = 'courses' %}
+{% block title %}Generate sessions{% endblock %}
+{% block heading %}Generate weekly sessions - {{ course.code }}{% endblock %}
+
+{% block content %}
+<form method="post" class="card card-body max-w-xl space-y-4">
+  {{ csrf_input }}
+  <p class="text-sm text-slate-500">
+    Pick the days of the week the class meets and the range it runs over. A session
+    is created for every matching date; dates that already have a session are skipped.
+  </p>
+  {{ form_fields(form) }}
+  <div class="flex gap-2">
+    <button class="btn-primary">Generate</button>
+    <a href="{{ url('academics:session_list', kwargs={'course_pk': course.pk}) }}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}
