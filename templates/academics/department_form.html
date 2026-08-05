@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import form_fields %}
+{% set page_id = 'departments' %}
+{% block title %}Department{% endblock %}
+{% block heading %}{{ 'Edit department' if object else 'Add department' }}{% endblock %}
+
+{% block content %}
+<form method="post" class="card card-body max-w-md space-y-4">
+  {{ csrf_input }}
+  {{ form_fields(form) }}
+  <div class="flex gap-2">
+    <button class="btn-primary">Save</button>
+    <a href="{{ url('academics:department_list') }}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

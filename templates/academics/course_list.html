@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, empty_state %}
+{% set page_id = 'courses' %}
+{% block title %}Courses{% endblock %}
+{% block heading %}{{ 'My courses' if request.user.is_teacher else 'Courses' }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-end gap-2">
+  <form method="get" class="flex items-end gap-2">
+    <div>
+      <label class="label" for="q">Search</label>
+      <input class="input" type="search" id="q" name="q" value="{{ q }}" placeholder="Code or name">
+    </div>
+    <button class="btn-secondary">Filter</button>
+  </form>
+  {% if request.user.is_admin %}
+    <div class="ml-auto flex gap-2">
+      <a href="{{ url('academics:enrolment_import') }}" class="btn-secondary">Import enrolments</a>
+      <a href="{{ url('academics:course_create') }}" class="btn-primary">Add course</a>
+    </div>
+  {% endif %}
+</div>
+
+{% if page.object_list %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead>
+      <tr><th>Code</th><th>Name</th><th>Department</th><th>Teachers</th><th>Students</th><th class="text-right">Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for course in page.object_list %}
+      <tr>
+        <td class="font-mono text-xs font-medium text-slate-900">{{ course.code }}</td>
+        <td>
+          <a href="{{ url('academics:course_detail', kwargs={'pk': course.pk}) }}" class="font-medium text-indigo-600 hover:underline">{{ course.name }}</a>
+          {% if not course.is_active %}<span class="badge ml-1 bg-slate-200 text-slate-600">Inactive</span>{% endif %}
+        </td>
+        <td class="text-slate-600">{{ course.department.code }}</td>
+        <td class="text-slate-600 text-xs">
+          {% for teacher in course.teachers.all() %}{{ teacher.display_name }}{{ ', ' if not loop.last }}{% else %}-{% endfor %}
+        </td>
+        <td class="text-slate-600">{{ course.enrolled }}</td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <a href="{{ url('academics:session_list', kwargs={'course_pk': course.pk}) }}" class="btn-secondary text-xs">Sessions</a>
+            <a href="{{ url('reports:course_report', kwargs={'course_pk': course.pk}) }}" class="btn-secondary text-xs">Report</a>
+            {% if request.user.is_admin %}
+              <a href="{{ url('academics:course_edit', kwargs={'pk': course.pk}) }}" class="btn-secondary text-xs">Edit</a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No courses found.') }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import empty_state %}
+{% set page_id = 'departments' %}
+{% block title %}Departments{% endblock %}
+{% block heading %}Departments{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex justify-end">
+  <a href="{{ url('academics:department_create') }}" class="btn-primary">Add department</a>
+</div>
+
+{% if departments %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Code</th><th>Name</th><th>Courses</th><th class="text-right">Actions</th></tr></thead>
+    <tbody>
+      {% for department in departments %}
+      <tr>
+        <td class="font-mono text-xs font-medium text-slate-900">{{ department.code }}</td>
+        <td>{{ department.name }}</td>
+        <td class="text-slate-600">{{ department.course_count }}</td>
+        <td class="text-right">
+          <a href="{{ url('academics:department_edit', kwargs={'pk': department.pk}) }}" class="btn-secondary text-xs">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  {{ empty_state('No departments yet.', url('academics:department_create'), 'Add department') }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import field, empty_state %}
+{% set page_id = 'courses' %}
+{% block title %}{{ course.code }}{% endblock %}
+{% block heading %}{{ course.code }} - {{ course.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap gap-2">
+  <a href="{{ url('academics:session_list', kwargs={'course_pk': course.pk}) }}" class="btn-secondary">Sessions</a>
+  <a href="{{ url('reports:course_report', kwargs={'course_pk': course.pk}) }}" class="btn-secondary">Attendance report</a>
+  {% if request.user.is_admin %}
+    <a href="{{ url('academics:course_edit', kwargs={'pk': course.pk}) }}" class="btn-secondary">Edit course</a>
+  {% endif %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <div class="card card-body space-y-2 text-sm">
+    <div><p class="text-xs uppercase text-slate-500">Department</p><p class="font-medium">{{ course.department.name }}</p></div>
+    <div><p class="text-xs uppercase text-slate-500">Term</p><p class="font-medium">{{ course.term or '-' }}</p></div>
+    <div><p class="text-xs uppercase text-slate-500">Credits</p><p class="font-medium">{{ course.credits }}</p></div>
+    <div>
+      <p class="text-xs uppercase text-slate-500">Teachers</p>
+      <p class="font-medium">
+        {% for teacher in course.teachers.all() %}{{ teacher.display_name }}{{ ', ' if not loop.last }}{% else %}Not assigned{% endfor %}
+      </p>
+    </div>
+    <div><p class="text-xs uppercase text-slate-500">Enrolled students</p><p class="font-medium">{{ enrolments|length }}</p></div>
+  </div>
+
+  <div class="card lg:col-span-2">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <h2 class="font-medium text-slate-900">Enrolled students</h2>
+    </div>
+
+    {% if request.user.is_admin %}
+    <form method="post" action="{{ url('academics:enrolment_add', kwargs={'course_pk': course.pk}) }}"
+          class="flex flex-wrap items-end gap-2 border-b border-slate-200 bg-slate-50 p-4">
+      {{ csrf_input }}
+      <div class="min-w-64 flex-1">{{ field(enrol_form.student) }}</div>
+      <button class="btn-primary">Enrol student</button>
+    </form>
+    {% endif %}
+
+    {% if enrolments %}
+    <div class="max-h-96 overflow-y-auto">
+      <table class="table">
+        <thead><tr><th>Student</th><th>Username</th><th>Enrolled</th>{% if request.user.is_admin %}<th></th>{% endif %}</tr></thead>
+        <tbody>
+          {% for enrolment in enrolments %}
+          <tr>
+            <td class="font-medium text-slate-900">{{ enrolment.student.display_name }}</td>
+            <td class="font-mono text-xs text-slate-600">{{ enrolment.student.username }}</td>
+            <td class="text-slate-600">{{ enrolment.enrolled_on.strftime('%d %b %Y') }}</td>
+            {% if request.user.is_admin %}
+            <td class="text-right">
+              <form method="post" action="{{ url('academics:enrolment_remove', kwargs={'pk': enrolment.pk}) }}">
+                {{ csrf_input }}
+                <button class="btn-danger text-xs">Remove</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="p-4 text-sm text-slate-500">No students enrolled yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<h2 class="mt-6 mb-3 font-medium text-slate-900">Recent sessions</h2>
+{% if sessions %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Status</th><th class="text-right"></th></tr></thead>
+    <tbody>
+      {% for session in sessions %}
+      <tr>
+        <td class="font-medium text-slate-900">{{ session.date.strftime('%d %b %Y') }}</td>
+        <td class="text-slate-600">{{ session.start_time.strftime('%H:%M') }}-{{ session.end_time.strftime('%H:%M') }}</td>
+        <td class="text-slate-600">{{ session.room or '-' }}</td>
+        <td>
+          {% if session.is_cancelled %}
+            <span class="badge bg-slate-200 text-slate-600">Cancelled</span>
+          {% elif session.is_marked %}
+            <span class="badge bg-emerald-100 text-emerald-800">Marked</span>
+          {% else %}
+            <span class="badge bg-amber-100 text-amber-800">Not marked</span>
+          {% endif %}
+        </td>
+        <td class="text-right">
+          <a href="{{ url('attendance:register', kwargs={'session_pk': session.pk}) }}" class="btn-secondary text-xs">Register</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  {{ empty_state('No sessions scheduled.', url('academics:session_generate', kwargs={'course_pk': course.pk}), 'Generate sessions') }}
+{% endif %}
+{% endblock %}

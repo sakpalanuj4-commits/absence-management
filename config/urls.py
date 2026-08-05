@@ -6,6 +6,7 @@ urlpatterns = [
     path("", RedirectView.as_view(pattern_name="accounts:dashboard"), name="home"),
     path("django-admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
+    path("academics/", include("academics.urls")),
 ]
 
 handler403 = "config.errors.permission_denied"

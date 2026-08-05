@@ -1,3 +1,12 @@
+{% macro stat_card(label, value, hint='', tone='indigo') %}
+  <div class="card card-body">
+    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ label }}</p>
+    <p class="mt-1 text-2xl font-semibold text-{{ tone }}-600">{{ value }}</p>
+    {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+  </div>
+{% endmacro %}
+
+
 {% macro field(bound_field) %}
   <div>
     <label class="label" for="{{ bound_field.id_for_label }}">{{ bound_field.label }}</label>
@@ -21,4 +30,37 @@
   {% for bound_field in form %}
     {{ field(bound_field) }}
   {% endfor %}
+{% endmacro %}
+
+
+{% macro pagination(page, request) %}
+  {% if page.has_other_pages() %}
+    {% set qs = request.GET.copy() %}
+    {% set _ = qs.pop('page', None) %}
+    {% set base = qs.urlencode() %}
+    <nav class="mt-4 flex items-center justify-between text-sm">
+      <p class="text-slate-500">
+        Showing {{ page.start_index() }}-{{ page.end_index() }} of {{ page.paginator.count }}
+      </p>
+      <div class="flex gap-1">
+        {% if page.has_previous() %}
+          <a class="btn-secondary" href="?{{ base }}&page={{ page.previous_page_number() }}">Previous</a>
+        {% endif %}
+        <span class="btn-secondary pointer-events-none">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next() %}
+          <a class="btn-secondary" href="?{{ base }}&page={{ page.next_page_number() }}">Next</a>
+        {% endif %}
+      </div>
+    </nav>
+  {% endif %}
+{% endmacro %}
+
+
+{% macro empty_state(message, action_url='', action_label='') %}
+  <div class="card card-body text-center text-sm text-slate-500">
+    <p>{{ message }}</p>
+    {% if action_url %}
+      <a href="{{ action_url }}" class="btn-primary mt-3 inline-flex">{{ action_label }}</a>
+    {% endif %}
+  </div>
 {% endmacro %}

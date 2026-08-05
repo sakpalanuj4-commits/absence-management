@@ -8,10 +8,71 @@
 </head>
 <body class="h-full bg-slate-50 text-slate-800 antialiased">
 
-<main class="p-4 sm:p-6 max-w-7xl">
-  {% include "components/messages.html" %}
-  {% block content %}{% endblock %}
-</main>
+{% if request.user.is_authenticated %}
+<div class="min-h-full lg:flex">
+
+  <input type="checkbox" id="nav-toggle" class="peer hidden">
+  <aside class="hidden peer-checked:block lg:block lg:w-64 lg:shrink-0 bg-slate-900 text-slate-300">
+    <div class="flex items-center gap-2 px-5 py-4 border-b border-slate-800">
+      <span class="grid h-8 w-8 place-items-center rounded-lg bg-indigo-500 text-white font-bold">A</span>
+      <span class="font-semibold text-white">Absence Manager</span>
+    </div>
+    <nav class="p-3 space-y-1 text-sm">
+      {% set nav = 'block rounded-lg px-3 py-2 hover:bg-slate-800 hover:text-white transition' %}
+      {% set active_nav = 'block rounded-lg px-3 py-2 bg-slate-800 text-white font-medium' %}
+
+      <a href="{{ url('accounts:dashboard') }}"
+         class="{{ active_nav if page_id == 'dashboard' else nav }}">Dashboard</a>
+
+      {% if request.user.is_admin %}
+        <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Manage</p>
+        <a href="{{ url('academics:department_list') }}"
+           class="{{ active_nav if page_id == 'departments' else nav }}">Departments</a>
+        <a href="{{ url('academics:course_list') }}"
+           class="{{ active_nav if page_id == 'courses' else nav }}">Courses</a>
+      {% elif request.user.is_teacher %}
+        <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Teaching</p>
+        <a href="{{ url('academics:course_list') }}"
+           class="{{ active_nav if page_id == 'courses' else nav }}">My courses</a>
+      {% endif %}
+
+      <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Account</p>
+      <a href="{{ url('accounts:profile') }}"
+         class="{{ active_nav if page_id == 'profile' else nav }}">Profile</a>
+    </nav>
+  </aside>
+
+  <div class="flex-1 min-w-0">
+    <header class="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
+      <label for="nav-toggle" class="lg:hidden cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-sm">Menu</label>
+      <h1 class="flex-1 truncate text-lg font-semibold text-slate-900">{% block heading %}{% endblock %}</h1>
+
+      <div class="flex items-center gap-2">
+        <span class="hidden sm:block text-right leading-tight">
+          <span class="block text-sm font-medium text-slate-900">{{ request.user.display_name }}</span>
+          <span class="block text-xs text-slate-500">{{ request.user.get_role_display() }}</span>
+        </span>
+        <span class="grid h-9 w-9 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">{{ request.user.initials }}</span>
+      </div>
+
+      <form method="post" action="{{ url('accounts:logout') }}">
+        {{ csrf_input }}
+        <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Sign out</button>
+      </form>
+    </header>
+
+    <main class="p-4 sm:p-6 max-w-7xl">
+      {% include "components/messages.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+  <main class="min-h-full">
+    {% include "components/messages.html" %}
+    {% block anon_content %}{% endblock %}
+  </main>
+{% endif %}
 
 {% block scripts %}{% endblock %}
 </body>
