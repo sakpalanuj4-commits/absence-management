@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, empty_state %}
+{% set page_id = 'users' %}
+{% block title %}Users{% endblock %}
+{% block heading %}Users{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-end gap-2">
+  <form method="get" class="flex flex-wrap items-end gap-2">
+    <div>
+      <label class="label" for="q">Search</label>
+      <input class="input" type="search" id="q" name="q" value="{{ q }}" placeholder="Name, username or email">
+    </div>
+    <div>
+      <label class="label" for="role">Role</label>
+      <select class="input" id="role" name="role">
+        <option value="">All roles</option>
+        {% for value, label in roles %}
+          <option value="{{ value }}" {{ 'selected' if role == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn-secondary">Filter</button>
+  </form>
+  <div class="ml-auto flex gap-2">
+    <a href="{{ url('accounts:user_import') }}" class="btn-secondary">Import CSV</a>
+    <a href="{{ url('accounts:user_create') }}" class="btn-primary">Add user</a>
+  </div>
+</div>
+
+{% if page.object_list %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th class="text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in page.object_list %}
+      <tr>
+        <td class="font-medium text-slate-900">{{ user.display_name }}</td>
+        <td class="text-slate-600">{{ user.username }}</td>
+        <td class="text-slate-600">{{ user.email or '-' }}</td>
+        <td><span class="badge bg-slate-100 text-slate-700">{{ user.get_role_display() }}</span></td>
+        <td>
+          {% if user.is_active %}
+            <span class="badge bg-emerald-100 text-emerald-800">Active</span>
+          {% else %}
+            <span class="badge bg-slate-200 text-slate-600">Inactive</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="flex justify-end gap-1">
+            <a href="{{ url('accounts:user_edit', kwargs={'pk': user.pk}) }}" class="btn-secondary text-xs">Edit</a>
+            <form method="post" action="{{ url('accounts:user_reset_password', kwargs={'pk': user.pk}) }}">
+              {{ csrf_input }}
+              <button class="btn-secondary text-xs">Reset password</button>
+            </form>
+            <form method="post" action="{{ url('accounts:user_toggle_active', kwargs={'pk': user.pk}) }}">
+              {{ csrf_input }}
+              <button class="{{ 'btn-danger' if user.is_active else 'btn-secondary' }} text-xs">
+                {{ 'Deactivate' if user.is_active else 'Activate' }}
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No users match this filter.', url('accounts:user_create'), 'Add user') }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import form_fields %}
+{% set page_id = 'users' %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+
+{% block content %}
+<form method="post" class="card card-body max-w-2xl space-y-4">
+  {{ csrf_input }}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ form_fields(form) }}
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary">Save</button>
+    <a href="{{ url('accounts:user_list') }}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

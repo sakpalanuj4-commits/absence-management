@@ -4,9 +4,20 @@ from django.contrib.auth.forms import (
     PasswordChangeForm,
     PasswordResetForm,
     SetPasswordForm,
+    UserCreationForm,
 )
 
 from .models import User
+
+USER_FIELDS = [
+    "username",
+    "first_name",
+    "last_name",
+    "email",
+    "phone",
+    "role",
+    "is_active",
+]
 
 INPUT = (
     "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm "
@@ -50,3 +61,22 @@ class ProfileForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = ["first_name", "last_name", "email", "phone"]
+
+
+class UserForm(StyledFormMixin, UserCreationForm):
+    class Meta:
+        model = User
+        fields = USER_FIELDS
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.must_change_password = True
+        if commit:
+            user.save()
+        return user
+
+
+class UserEditForm(StyledFormMixin, forms.ModelForm):
+    class Meta:
+        model = User
+        fields = USER_FIELDS

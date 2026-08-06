@@ -1,8 +1,13 @@
+import secrets
+
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
 
 from .forms import (
     ChangePasswordForm,
@@ -10,8 +15,11 @@ from .forms import (
     ProfileForm,
     ResetPasswordForm,
     ResetRequestForm,
+    UserEditForm,
+    UserForm,
 )
-from .models import User
+from .models import Role, User
+from .permissions import admin_required
 
 
 class LoginView(auth_views.LoginView):
@@ -72,3 +80,82 @@ def profile(request):
         messages.success(request, "Profile updated.")
         return redirect("accounts:profile")
     return render(request, "accounts/profile.html", {"form": form})
+
+
+@admin_required
+def user_list(request):
+    users = User.objects.all()
+    query = request.GET.get("q", "").strip()
+    role = request.GET.get("role", "")
+    if query:
+        users = users.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(email__icontains=query)
+        )
+    if role:
+        users = users.filter(role=role)
+    page = Paginator(users, 25).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "accounts/user_list.html",
+        {"page": page, "q": query, "role": role, "roles": Role.choices},
+    )
+
+
+@admin_required
+def user_create(request):
+    form = UserForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        messages.success(request, f"Account created for {user.display_name}.")
+        return redirect("accounts:user_list")
+    return render(
+        request, "accounts/user_form.html", {"form": form, "title": "Add user"}
+    )
+
+
+@admin_required
+def user_edit(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    form = UserEditForm(request.POST or None, instance=user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "User updated.")
+        return redirect("accounts:user_list")
+    return render(
+        request,
+        "accounts/user_form.html",
+        {"form": form, "title": f"Edit {user.display_name}", "object": user},
+    )
+
+
+@admin_required
+@require_POST
+def user_toggle_active(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if user == request.user:
+        messages.error(request, "You cannot deactivate your own account.")
+    else:
+        user.is_active = not user.is_active
+        user.save(update_fields=["is_active"])
+        state = "activated" if user.is_active else "deactivated"
+        messages.success(request, f"{user.display_name} {state}.")
+    return redirect("accounts:user_list")
+
+
+@admin_required
+@require_POST
+def user_reset_password(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    temporary = secrets.token_urlsafe(9)
+    user.set_password(temporary)
+    user.must_change_password = True
+    user.save(update_fields=["password", "must_change_password"])
+    messages.success(
+        request,
+        f"Temporary password for {user.display_name}: {temporary}. "
+        "They will be asked to change it at next login.",
+    )
+    return redirect("accounts:user_list")

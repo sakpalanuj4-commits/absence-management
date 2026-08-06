@@ -26,6 +26,8 @@
 
       {% if request.user.is_admin %}
         <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Manage</p>
+        <a href="{{ url('accounts:user_list') }}"
+           class="{{ active_nav if page_id == 'users' else nav }}">Users</a>
         <a href="{{ url('academics:department_list') }}"
            class="{{ active_nav if page_id == 'departments' else nav }}">Departments</a>
         <a href="{{ url('academics:course_list') }}"
