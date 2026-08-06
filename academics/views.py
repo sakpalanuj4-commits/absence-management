@@ -4,6 +4,7 @@ import io
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -245,3 +246,29 @@ def session_cancel(request, pk):
     state = "cancelled" if session.is_cancelled else "reinstated"
     messages.success(request, f"Session {state}.")
     return redirect("academics:session_list", course_pk=session.course_id)
+
+
+@staff_required
+def student_search(request):
+    query = request.GET.get("q", "").strip()
+    course_id = request.GET.get("course")
+
+    students = User.objects.filter(role=Role.STUDENT, is_active=True)
+    if request.user.is_teacher:
+        students = students.filter(enrolments__course__teachers=request.user).distinct()
+    if course_id:
+        students = students.filter(
+            enrolments__course_id=course_id, enrolments__is_active=True
+        )
+    if query:
+        students = students.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+        )
+
+    results = [
+        {"id": s.pk, "name": s.display_name, "username": s.username}
+        for s in students[:20]
+    ]
+    return JsonResponse({"results": results})

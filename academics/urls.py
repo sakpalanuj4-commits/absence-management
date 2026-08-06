@@ -32,4 +32,5 @@ urlpatterns = [
         name="session_generate",
     ),
     path("sessions/<int:pk>/cancel/", views.session_cancel, name="session_cancel"),
+    path("students/search/", views.student_search, name="student_search"),
 ]
