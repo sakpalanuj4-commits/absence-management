@@ -1,9 +1,13 @@
+import csv
+import io
+
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from accounts.models import Role, User
 from accounts.permissions import admin_required, require_course_access, staff_required
 
 from .forms import (
@@ -118,6 +122,57 @@ def enrolment_remove(request, pk):
         request, f"{enrolment.student.display_name} removed from the course."
     )
     return redirect("academics:course_detail", pk=course_pk)
+
+
+ENROLMENT_CSV_COLUMNS = ["username", "course_code"]
+
+
+@admin_required
+def enrolment_import(request):
+    results = None
+    if request.method == "POST" and request.FILES.get("file"):
+        results = import_enrolments(request.FILES["file"])
+        messages.success(
+            request,
+            f"{results['created']} enrolments created, "
+            f"{len(results['errors'])} rows rejected.",
+        )
+    return render(
+        request,
+        "academics/enrolment_import.html",
+        {"results": results, "columns": ENROLMENT_CSV_COLUMNS},
+    )
+
+
+def import_enrolments(upload):
+    text = io.TextIOWrapper(upload.file, encoding="utf-8-sig")
+    reader = csv.DictReader(text)
+    created, errors = 0, []
+
+    for line, row in enumerate(reader, start=2):
+        username = (row.get("username") or "").strip()
+        code = (row.get("course_code") or "").strip()
+
+        student = User.objects.filter(username=username, role=Role.STUDENT).first()
+        if student is None:
+            errors.append(
+                {"line": line, "row": row, "error": f"no student '{username}'"}
+            )
+            continue
+        course = Course.objects.filter(code=code).first()
+        if course is None:
+            errors.append({"line": line, "row": row, "error": f"no course '{code}'"})
+            continue
+
+        _, was_created = Enrolment.objects.get_or_create(
+            student=student, course=course, defaults={"is_active": True}
+        )
+        if was_created:
+            created += 1
+        else:
+            errors.append({"line": line, "row": row, "error": "already enrolled"})
+
+    return {"created": created, "errors": errors}
 
 
 @staff_required

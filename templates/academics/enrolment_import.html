@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% set page_id = 'courses' %}
+{% block title %}Import enrolments{% endblock %}
+{% block heading %}Import enrolments from CSV{% endblock %}
+
+{% block content %}
+<div class="grid gap-4 lg:grid-cols-3">
+  <form method="post" enctype="multipart/form-data" class="card card-body space-y-4 lg:col-span-2">
+    {{ csrf_input }}
+    <div>
+      <label class="label" for="file">CSV file</label>
+      <input class="input" type="file" name="file" id="file" accept=".csv" required>
+    </div>
+    <button class="btn-primary">Import</button>
+  </form>
+
+  <div class="card card-body text-sm">
+    <p class="font-medium text-slate-900">Expected columns</p>
+    <ul class="mt-2 space-y-1 text-slate-600">
+      {% for column in columns %}<li class="font-mono text-xs">{{ column }}</li>{% endfor %}
+    </ul>
+    <p class="mt-3 text-xs text-slate-500">
+      Both the student username and the course code must already exist.
+    </p>
+  </div>
+</div>
+
+{% if results %}
+<div class="mt-6 card card-body">
+  <p class="text-sm">
+    <span class="font-semibold text-emerald-700">{{ results.created }}</span> enrolments created,
+    <span class="font-semibold text-rose-700">{{ results.errors|length }}</span> rows rejected.
+  </p>
+  {% if results.errors %}
+    <div class="mt-3 overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>Line</th><th>Username</th><th>Course</th><th>Reason</th></tr></thead>
+        <tbody>
+          {% for error in results.errors %}
+          <tr>
+            <td>{{ error.line }}</td>
+            <td class="font-mono text-xs">{{ error.row.get('username', '') }}</td>
+            <td class="font-mono text-xs">{{ error.row.get('course_code', '') }}</td>
+            <td class="text-rose-700">{{ error.error }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
