@@ -1,9 +1,12 @@
+import csv
+import io
 import secrets
 
 from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -159,3 +162,62 @@ def user_reset_password(request, pk):
         "They will be asked to change it at next login.",
     )
     return redirect("accounts:user_list")
+
+
+USER_CSV_COLUMNS = ["username", "first_name", "last_name", "email", "role", "password"]
+
+
+@admin_required
+def user_import(request):
+    results = None
+    if request.method == "POST" and request.FILES.get("file"):
+        results = import_users(request.FILES["file"])
+        messages.success(
+            request,
+            f"{results['created']} users created, "
+            f"{len(results['errors'])} rows rejected.",
+        )
+    return render(
+        request,
+        "accounts/user_import.html",
+        {"results": results, "columns": USER_CSV_COLUMNS},
+    )
+
+
+def import_users(upload):
+    text = io.TextIOWrapper(upload.file, encoding="utf-8-sig")
+    reader = csv.DictReader(text)
+    created, errors = 0, []
+    valid_roles = {r for r, _ in Role.choices}
+
+    for line, row in enumerate(reader, start=2):
+        username = (row.get("username") or "").strip()
+        role = (row.get("role") or "STUDENT").strip().upper()
+
+        if not username:
+            errors.append({"line": line, "row": row, "error": "username is required"})
+            continue
+        if role not in valid_roles:
+            errors.append({"line": line, "row": row, "error": f"unknown role '{role}'"})
+            continue
+        if User.objects.filter(username=username).exists():
+            errors.append(
+                {"line": line, "row": row, "error": "username already exists"}
+            )
+            continue
+
+        password = (row.get("password") or "").strip() or secrets.token_urlsafe(9)
+        with transaction.atomic():
+            user = User(
+                username=username,
+                first_name=(row.get("first_name") or "").strip(),
+                last_name=(row.get("last_name") or "").strip(),
+                email=(row.get("email") or "").strip(),
+                role=role,
+                must_change_password=True,
+            )
+            user.set_password(password)
+            user.save()
+        created += 1
+
+    return {"created": created, "errors": errors}
