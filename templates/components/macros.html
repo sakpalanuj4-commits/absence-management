@@ -53,6 +53,20 @@
 {% endmacro %}
 
 
+{% macro percent_bar(value, threshold=75) %}
+  {% set pct = value if value is not none else 0 %}
+  {% set colour = 'bg-emerald-500' if pct >= threshold else ('bg-amber-500' if pct >= threshold - 10 else 'bg-rose-500') %}
+  <div class="flex items-center gap-2">
+    <div class="h-2 w-24 overflow-hidden rounded-full bg-slate-200">
+      <div class="h-full {{ colour }}" style="width: {{ pct if pct <= 100 else 100 }}%"></div>
+    </div>
+    <span class="text-sm tabular-nums {{ 'text-rose-600 font-medium' if pct < threshold else 'text-slate-700' }}">
+      {{ '%.1f'|format(pct) }}%
+    </span>
+  </div>
+{% endmacro %}
+
+
 {% macro pagination(page, request) %}
   {% if page.has_other_pages() %}
     {% set qs = request.GET.copy() %}

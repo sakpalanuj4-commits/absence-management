@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, status_badge, percent_bar, empty_state %}
+{% set page_id = 'my_attendance' %}
+{% block title %}My attendance{% endblock %}
+{% block heading %}My attendance{% endblock %}
+
+{% block content %}
+<div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  {% for row in rows %}
+  <div class="card card-body">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <p class="font-mono text-xs text-slate-500">{{ row.course.code }}</p>
+        <p class="font-medium text-slate-900">{{ row.course.name }}</p>
+      </div>
+      {% if row.below_threshold %}<span class="badge bg-rose-100 text-rose-800">At risk</span>{% endif %}
+    </div>
+    <div class="mt-3">{{ percent_bar(row.percentage or 0, threshold) }}</div>
+    <p class="mt-2 text-xs text-slate-500">
+      {{ row.attended }} of {{ row.total }} sessions attended · {{ row.absent }} absent
+    </p>
+  </div>
+  {% endfor %}
+</div>
+
+<form method="get" class="mb-4 flex flex-wrap items-end gap-2">
+  <div>
+    <label class="label" for="course">Course</label>
+    <select class="input" name="course" id="course">
+      <option value="">All courses</option>
+      {% for course in courses %}
+        <option value="{{ course.pk }}" {{ 'selected' if filters.get('course') == course.pk|string }}>{{ course.code }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="label" for="status">Status</label>
+    <select class="input" name="status" id="status">
+      <option value="">All</option>
+      {% for value, label in statuses %}
+        <option value="{{ value }}" {{ 'selected' if filters.get('status') == value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="label" for="from">From</label>
+    <input class="input" type="date" name="from" id="from" value="{{ filters.get('from', '') }}">
+  </div>
+  <div>
+    <label class="label" for="to">To</label>
+    <input class="input" type="date" name="to" id="to" value="{{ filters.get('to', '') }}">
+  </div>
+  <button class="btn-secondary">Filter</button>
+  <a href="{{ url('attendance:request_create') }}" class="btn-primary ml-auto">Request absence</a>
+</form>
+
+{% if page.object_list %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Date</th><th>Course</th><th>Time</th><th>Status</th><th>Remark</th></tr></thead>
+    <tbody>
+      {% for record in page.object_list %}
+      <tr>
+        <td class="font-medium text-slate-900">{{ record.session.date.strftime('%d %b %Y') }}</td>
+        <td class="text-slate-600"><span class="font-mono text-xs">{{ record.session.course.code }}</span></td>
+        <td class="text-slate-600">{{ record.session.start_time.strftime('%H:%M') }}</td>
+        <td>{{ status_badge(record.status) }}</td>
+        <td class="text-xs text-slate-500">{{ record.remark or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No attendance records match this filter.') }}
+{% endif %}
+{% endblock %}
