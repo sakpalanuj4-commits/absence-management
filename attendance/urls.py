@@ -7,4 +7,5 @@ app_name = "attendance"
 urlpatterns = [
     path("registers/", views.register_list, name="register_list"),
     path("session/<int:session_pk>/", views.register, name="register"),
+    path("session/<int:session_pk>/save/", views.register_save, name="register_save"),
 ]

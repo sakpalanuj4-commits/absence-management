@@ -1,12 +1,21 @@
+import json
+
 from django.core.paginator import Paginator
 from django.db.models import Count
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from academics.models import ClassSession, Course
-from accounts.permissions import require_course_access, staff_required
+from accounts.permissions import (
+    require_course_access,
+    staff_required,
+    teacher_owns_course,
+)
 
 from .models import AttendanceRecord, Status
+from .services import save_register
 
 
 @staff_required
@@ -79,3 +88,25 @@ def register(request, session_pk):
             "is_marked": bool(existing),
         },
     )
+
+
+@staff_required
+@require_POST
+def register_save(request, session_pk):
+    session = get_object_or_404(ClassSession, pk=session_pk)
+    if not teacher_owns_course(request.user, session.course):
+        return JsonResponse(
+            {"ok": False, "error": "You are not assigned to this course."}, status=403
+        )
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Malformed request."}, status=400)
+
+    rows = payload.get("records") or []
+    if not isinstance(rows, list):
+        return JsonResponse({"ok": False, "error": "Malformed request."}, status=400)
+
+    written = save_register(session, request.user, rows)
+    return JsonResponse({"ok": True, "saved": written})
