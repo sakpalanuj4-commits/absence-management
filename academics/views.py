@@ -180,7 +180,7 @@ def import_enrolments(upload):
 def session_list(request, course_pk):
     course = get_object_or_404(Course, pk=course_pk)
     require_course_access(request.user, course)
-    sessions = course.sessions.all()
+    sessions = course.sessions.annotate(marked=Count("attendance_records"))
     page = Paginator(sessions, 30).get_page(request.GET.get("page"))
     return render(
         request, "academics/session_list.html", {"course": course, "page": page}

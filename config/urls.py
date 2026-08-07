@@ -7,6 +7,7 @@ urlpatterns = [
     path("django-admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
     path("academics/", include("academics.urls")),
+    path("attendance/", include("attendance.urls")),
 ]
 
 handler403 = "config.errors.permission_denied"

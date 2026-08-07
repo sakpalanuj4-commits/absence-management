@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import empty_state %}
+{% set page_id = 'registers' %}
+{% block title %}Register - {{ session.course.code }}{% endblock %}
+{% block heading %}Register - {{ session.course.code }} · {{ session.date.strftime('%a %d %b %Y') }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center gap-2">
+  <div class="card card-body flex-1 py-3">
+    <p class="text-sm text-slate-600">
+      {{ session.course.name }} ·
+      {{ session.start_time.strftime('%H:%M') }}-{{ session.end_time.strftime('%H:%M') }}
+      {% if session.room %} · Room {{ session.room }}{% endif %}
+    </p>
+    <p id="save-state" class="mt-0.5 text-xs {{ 'text-emerald-600' if is_marked else 'text-amber-600' }}">
+      {{ 'Register already taken - you can edit and save again.' if is_marked else 'Register not taken yet.' }}
+    </p>
+  </div>
+  <a href="{{ url('attendance:register_list') }}" class="btn-secondary">All registers</a>
+</div>
+
+{% if rows %}
+<form id="register-form"
+      data-save-url="{{ url('attendance:register_save', kwargs={'session_pk': session.pk}) }}">
+  {{ csrf_input }}
+
+  <div class="mb-3 flex flex-wrap items-center gap-2">
+    <button type="button" class="btn-secondary" data-mark-all="PRESENT">Mark all present</button>
+    <button type="button" class="btn-secondary" data-mark-all="ABSENT">Mark all absent</button>
+    <input class="input ml-auto w-56" type="search" id="student-filter" placeholder="Filter students">
+  </div>
+
+  <div class="card overflow-x-auto">
+    <table class="table" id="register-table">
+      <thead>
+        <tr>
+          <th class="w-8">#</th>
+          <th>Student</th>
+          <th class="w-96">Status</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr data-student="{{ row.student.pk }}" data-name="{{ row.student.display_name|lower }} {{ row.student.username|lower }}">
+          <td class="text-xs text-slate-400">{{ loop.index }}</td>
+          <td>
+            <p class="font-medium text-slate-900">{{ row.student.display_name }}</p>
+            <p class="font-mono text-xs text-slate-500">{{ row.student.username }}</p>
+          </td>
+          <td>
+            <div class="flex flex-wrap gap-1">
+              {% for value, label in statuses %}
+                {% set tone = {
+                  'PRESENT': 'peer-checked:bg-emerald-600',
+                  'ABSENT':  'peer-checked:bg-rose-600',
+                  'LATE':    'peer-checked:bg-amber-500',
+                  'EXCUSED': 'peer-checked:bg-sky-600'
+                }[value] %}
+                <label class="cursor-pointer">
+                  <input type="radio" class="peer sr-only" name="status-{{ row.student.pk }}"
+                         value="{{ value }}" {{ 'checked' if row.status == value }}>
+                  <span class="badge border border-slate-300 bg-white px-2.5 py-1 text-slate-600
+                               peer-checked:border-transparent peer-checked:text-white {{ tone }}">{{ label }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          </td>
+          <td>
+            <input class="input py-1.5 text-xs" type="text" name="remark-{{ row.student.pk }}"
+                   value="{{ row.remark }}" placeholder="Optional" maxlength="255">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sticky bottom-0 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <p id="register-summary" class="text-sm text-slate-600"></p>
+    <div class="ml-auto flex gap-2">
+      <button type="submit" class="btn-primary" id="save-button">Save register</button>
+    </div>
+  </div>
+</form>
+{% else %}
+  {{ empty_state('No students are enrolled on this course yet.',
+                 url('academics:course_detail', kwargs={'pk': session.course.pk}),
+                 'Manage enrolments') }}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static('js/register.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, empty_state %}
+{% set page_id = 'registers' %}
+{% block title %}Registers{% endblock %}
+{% block heading %}Registers{% endblock %}
+
+{% block content %}
+<form method="get" class="mb-4 flex flex-wrap items-end gap-2">
+  <div>
+    <label class="label" for="course">Course</label>
+    <select class="input" name="course" id="course">
+      <option value="">All courses</option>
+      {% for course in courses %}
+        <option value="{{ course.pk }}" {{ 'selected' if course_id == course.pk|string }}>{{ course.code }} - {{ course.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="label" for="state">Status</label>
+    <select class="input" name="state" id="state">
+      <option value="">All</option>
+      <option value="unmarked" {{ 'selected' if state == 'unmarked' }}>Not marked</option>
+      <option value="marked" {{ 'selected' if state == 'marked' }}>Marked</option>
+    </select>
+  </div>
+  <button class="btn-secondary">Filter</button>
+</form>
+
+{% if page.object_list %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Date</th><th>Course</th><th>Time</th><th>Room</th><th>Register</th><th class="text-right"></th></tr></thead>
+    <tbody>
+      {% for session in page.object_list %}
+      <tr>
+        <td class="font-medium text-slate-900">{{ session.date.strftime('%a %d %b %Y') }}</td>
+        <td>
+          <span class="font-mono text-xs">{{ session.course.code }}</span>
+          <span class="text-slate-600">{{ session.course.name }}</span>
+        </td>
+        <td class="text-slate-600">{{ session.start_time.strftime('%H:%M') }}</td>
+        <td class="text-slate-600">{{ session.room or '-' }}</td>
+        <td>
+          {% if session.marked %}
+            <span class="badge bg-emerald-100 text-emerald-800">{{ session.marked }} marked</span>
+          {% elif session.date <= today() %}
+            <span class="badge bg-amber-100 text-amber-800">Not marked</span>
+          {% else %}
+            <span class="badge bg-slate-100 text-slate-600">Upcoming</span>
+          {% endif %}
+        </td>
+        <td class="text-right">
+          <a href="{{ url('attendance:register', kwargs={'session_pk': session.pk}) }}"
+             class="{{ 'btn-secondary' if session.marked else 'btn-primary' }} text-xs">
+            {{ 'Edit' if session.marked else 'Mark' }}
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No sessions match this filter.') }}
+{% endif %}
+{% endblock %}

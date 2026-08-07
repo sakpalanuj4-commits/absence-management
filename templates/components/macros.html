@@ -33,6 +33,26 @@
 {% endmacro %}
 
 
+{% macro status_badge(status) %}
+  {% set tones = {
+    'PRESENT': 'bg-emerald-100 text-emerald-800',
+    'ABSENT':  'bg-rose-100 text-rose-800',
+    'LATE':    'bg-amber-100 text-amber-800',
+    'EXCUSED': 'bg-sky-100 text-sky-800',
+    'PENDING': 'bg-slate-100 text-slate-700',
+    'APPROVED':'bg-emerald-100 text-emerald-800',
+    'REJECTED':'bg-rose-100 text-rose-800'
+  } %}
+  {% set labels = {
+    'PRESENT': 'Present', 'ABSENT': 'Absent', 'LATE': 'Late', 'EXCUSED': 'Excused',
+    'PENDING': 'Pending', 'APPROVED': 'Approved', 'REJECTED': 'Rejected'
+  } %}
+  <span class="badge {{ tones.get(status, 'bg-slate-100 text-slate-700') }}">
+    {{ labels.get(status, status) }}
+  </span>
+{% endmacro %}
+
+
 {% macro pagination(page, request) %}
   {% if page.has_other_pages() %}
     {% set qs = request.GET.copy() %}

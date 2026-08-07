@@ -36,6 +36,8 @@
         <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Teaching</p>
         <a href="{{ url('academics:course_list') }}"
            class="{{ active_nav if page_id == 'courses' else nav }}">My courses</a>
+        <a href="{{ url('attendance:register_list') }}"
+           class="{{ active_nav if page_id == 'registers' else nav }}">Registers</a>
       {% endif %}
 
       <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Account</p>
