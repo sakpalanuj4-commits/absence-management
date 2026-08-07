@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts",
     "academics",
+    "attendance",
 ]
 
 MIDDLEWARE = [
@@ -163,3 +164,4 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "no-reply@absence-management.loca
 
 
 ATTENDANCE_THRESHOLD_DEFAULT = 75
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
