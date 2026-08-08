@@ -28,6 +28,7 @@
     button.addEventListener("click", () => {
       const status = button.dataset.markAll;
       rows().forEach((row) => {
+        if (row.hidden) return;
         const radio = row.querySelector(`input[type=radio][value="${status}"]`);
         if (radio) radio.checked = true;
       });
