@@ -11,7 +11,11 @@ from .models import AttendanceRecord, RequestStatus, Status
 
 @transaction.atomic
 def save_register(session, marked_by, rows):
-    """Create or update the records for one session from the posted rows."""
+    """Create or update the records for one session from the posted rows.
+
+    Returns the number written, the students newly marked absent, and every
+    student touched by this save.
+    """
     enrolled = {
         student.pk: student
         for student in User.objects.filter(
@@ -27,6 +31,8 @@ def save_register(session, marked_by, rows):
     valid_statuses = {value for value, _ in Status.choices}
 
     written = 0
+    newly_absent = []
+    touched = []
 
     for row in rows:
         try:
@@ -41,21 +47,40 @@ def save_register(session, marked_by, rows):
         record = existing.get(student_id)
 
         if record is None:
-            AttendanceRecord.objects.create(
+            record = AttendanceRecord.objects.create(
                 session=session,
                 student=enrolled[student_id],
                 status=status,
                 remark=remark,
                 marked_by=marked_by,
             )
+            if status == Status.ABSENT:
+                newly_absent.append(enrolled[student_id])
         else:
+            became_absent = record.status != Status.ABSENT and status == Status.ABSENT
             record.status = status
             record.remark = remark
             record.marked_by = marked_by
             record.save(update_fields=["status", "remark", "marked_by", "updated_at"])
+            if became_absent:
+                newly_absent.append(enrolled[student_id])
+        touched.append(enrolled[student_id])
         written += 1
 
-    return written
+    return written, newly_absent, touched
+
+
+def notify_absent_students(session, students):
+    link = reverse("attendance:my_attendance")
+    for student in students:
+        notify(
+            student,
+            f"You were marked absent for {session.course.code} on "
+            f"{session.date:%d %b %Y}.",
+            link=link,
+            email=True,
+            subject=f"Absence recorded: {session.course.code}",
+        )
 
 
 def reviewers_for(course):
@@ -64,6 +89,23 @@ def reviewers_for(course):
     if teachers:
         return teachers
     return list(User.objects.filter(role=Role.ADMIN, is_active=True))
+
+
+def submit_request(absence_request):
+    absence_request.status = RequestStatus.PENDING
+    absence_request.save()
+    link = reverse("attendance:request_list")
+    for reviewer in reviewers_for(absence_request.course):
+        notify(
+            reviewer,
+            f"{absence_request.student.display_name} requested absence for "
+            f"{absence_request.course.code} "
+            f"({absence_request.start_date:%d %b} - {absence_request.end_date:%d %b}).",
+            link=link,
+            email=True,
+            subject="New absence request",
+        )
+    return absence_request
 
 
 @transaction.atomic

@@ -27,7 +27,13 @@ from .models import (
     RequestStatus,
     Status,
 )
-from .services import approve_request, reject_request, save_register
+from .services import (
+    approve_request,
+    notify_absent_students,
+    reject_request,
+    save_register,
+    submit_request,
+)
 
 
 @staff_required
@@ -120,8 +126,11 @@ def register_save(request, session_pk):
     if not isinstance(rows, list):
         return JsonResponse({"ok": False, "error": "Malformed request."}, status=400)
 
-    written = save_register(session, request.user, rows)
-    return JsonResponse({"ok": True, "saved": written})
+    written, newly_absent, _ = save_register(session, request.user, rows)
+    notify_absent_students(session, newly_absent)
+    return JsonResponse(
+        {"ok": True, "saved": written, "absent_notified": len(newly_absent)}
+    )
 
 
 def course_rows_for(student, limit):
@@ -199,7 +208,7 @@ def request_create(request):
         request.POST or None, request.FILES or None, student=request.user
     )
     if request.method == "POST" and form.is_valid():
-        form.save()
+        submit_request(form.save(commit=False))
         messages.success(request, "Your absence request has been submitted.")
         return redirect("attendance:request_list")
     return render(request, "attendance/request_form.html", {"form": form})

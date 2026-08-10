@@ -88,7 +88,10 @@
         throw new Error(data.error || "The register could not be saved.");
       }
 
-      state.textContent = `Saved ${data.saved} records at ${new Date().toLocaleTimeString()}.`;
+      const notified = data.absent_notified
+        ? ` ${data.absent_notified} student(s) notified of absence.`
+        : "";
+      state.textContent = `Saved ${data.saved} records at ${new Date().toLocaleTimeString()}.${notified}`;
       state.className = "mt-0.5 text-xs text-emerald-600";
     } catch (error) {
       state.textContent = error.message;
