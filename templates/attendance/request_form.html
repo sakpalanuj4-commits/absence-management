@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import form_fields %}
+{% set page_id = 'requests' %}
+{% block title %}Request absence{% endblock %}
+{% block heading %}Request an absence{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card card-body max-w-2xl space-y-4">
+  {{ csrf_input }}
+  <p class="text-sm text-slate-500">
+    Your teacher will review this request. If it is approved, the sessions in the
+    date range are recorded as excused rather than absent.
+  </p>
+  {{ form_fields(form) }}
+  <div class="flex gap-2">
+    <button class="btn-primary">Submit request</button>
+    <a href="{{ url('attendance:request_list') }}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

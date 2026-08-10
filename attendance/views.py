@@ -1,9 +1,10 @@
 import json
 
+from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -16,6 +17,7 @@ from accounts.permissions import (
     teacher_owns_course,
 )
 
+from .forms import AbsenceRequestForm
 from .models import COUNTS_AS_ATTENDED, AttendanceRecord, Status
 from .services import save_register
 
@@ -181,3 +183,15 @@ def my_attendance(request):
             "filters": request.GET,
         },
     )
+
+
+@student_required
+def request_create(request):
+    form = AbsenceRequestForm(
+        request.POST or None, request.FILES or None, student=request.user
+    )
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Your absence request has been submitted.")
+        return redirect("accounts:dashboard")
+    return render(request, "attendance/request_form.html", {"form": form})
