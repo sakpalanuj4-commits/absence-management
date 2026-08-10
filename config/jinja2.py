@@ -7,6 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 from jinja2 import Environment
 
+from accounts.services import unread_count
+
 
 def percent(value, places=1):
     if value is None:
@@ -25,6 +27,7 @@ def environment(**options):
             "get_messages": django_messages.get_messages,
             "now": timezone.localtime,
             "today": timezone.localdate,
+            "unread_count": unread_count,
         }
     )
     env.filters["percent"] = percent

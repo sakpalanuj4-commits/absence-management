@@ -21,7 +21,7 @@ from .forms import (
     UserEditForm,
     UserForm,
 )
-from .models import Role, User
+from .models import Notification, Role, User
 from .permissions import admin_required
 
 
@@ -83,6 +83,32 @@ def profile(request):
         messages.success(request, "Profile updated.")
         return redirect("accounts:profile")
     return render(request, "accounts/profile.html", {"form": form})
+
+
+@login_required
+def notification_list(request):
+    notifications = Notification.objects.filter(recipient=request.user)
+    page = Paginator(notifications, 25).get_page(request.GET.get("page"))
+    return render(request, "accounts/notifications.html", {"page": page})
+
+
+@login_required
+@require_POST
+def notification_read(request, pk):
+    notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    notification.is_read = True
+    notification.save(update_fields=["is_read"])
+    return redirect(notification.link or "accounts:notifications")
+
+
+@login_required
+@require_POST
+def notification_read_all(request):
+    Notification.objects.filter(recipient=request.user, is_read=False).update(
+        is_read=True
+    )
+    messages.success(request, "All notifications marked as read.")
+    return redirect("accounts:notifications")
 
 
 @admin_required

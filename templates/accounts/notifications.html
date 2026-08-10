@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, empty_state %}
+{% set page_id = 'notifications' %}
+{% block title %}Notifications{% endblock %}
+{% block heading %}Notifications{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex justify-end">
+  <form method="post" action="{{ url('accounts:notification_read_all') }}">
+    {{ csrf_input }}
+    <button class="btn-secondary">Mark all as read</button>
+  </form>
+</div>
+
+{% if page.object_list %}
+  <div class="card divide-y divide-slate-100">
+    {% for item in page.object_list %}
+      <div class="flex items-start gap-3 p-4 {{ 'bg-indigo-50/40' if not item.is_read }}">
+        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {{ 'bg-indigo-500' if not item.is_read else 'bg-slate-300' }}"></span>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm text-slate-800">{{ item.message }}</p>
+          <p class="mt-0.5 text-xs text-slate-500">{{ item.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+        </div>
+        {% if item.link %}
+          <form method="post" action="{{ url('accounts:notification_read', kwargs={'pk': item.pk}) }}">
+            {{ csrf_input }}
+            <button class="btn-secondary text-xs">Open</button>
+          </form>
+        {% elif not item.is_read %}
+          <form method="post" action="{{ url('accounts:notification_read', kwargs={'pk': item.pk}) }}">
+            {{ csrf_input }}
+            <button class="btn-secondary text-xs">Mark read</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('You have no notifications.') }}
+{% endif %}
+{% endblock %}
