@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import status_badge, field %}
+{% set page_id = 'requests' %}
+{% block title %}Absence request{% endblock %}
+{% block heading %}Absence request{% endblock %}
+
+{% block content %}
+<div class="card card-body max-w-2xl space-y-3">
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="font-medium text-slate-900">{{ object.student.display_name }}</span>
+    <span class="font-mono text-xs text-slate-500">{{ object.course.code }}</span>
+    {{ status_badge(object.status) }}
+  </div>
+
+  <dl class="grid gap-3 text-sm sm:grid-cols-2">
+    <div><dt class="text-xs uppercase text-slate-500">Dates</dt>
+      <dd>{{ object.start_date.strftime('%d %b %Y') }} - {{ object.end_date.strftime('%d %b %Y') }}</dd></div>
+    <div><dt class="text-xs uppercase text-slate-500">Category</dt>
+      <dd>{{ object.get_category_display() }}</dd></div>
+    <div class="sm:col-span-2"><dt class="text-xs uppercase text-slate-500">Reason</dt>
+      <dd>{{ object.reason }}</dd></div>
+    {% if object.document %}
+    <div class="sm:col-span-2"><dt class="text-xs uppercase text-slate-500">Supporting document</dt>
+      <dd><a href="{{ object.document.url }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">Open file</a></dd></div>
+    {% endif %}
+    {% if object.reviewed_by %}
+    <div class="sm:col-span-2"><dt class="text-xs uppercase text-slate-500">Decision</dt>
+      <dd>{{ object.reviewed_by.display_name }} - {{ object.review_comment or 'no comment' }}</dd></div>
+    {% endif %}
+  </dl>
+
+  {% if object.is_pending and not request.user.is_student %}
+  <form method="post" action="{{ url('attendance:request_review', kwargs={'pk': object.pk}) }}" class="space-y-2 border-t border-slate-200 pt-3">
+    {{ csrf_input }}
+    {{ field(review_form.comment) }}
+    <div class="flex gap-2">
+      <button name="decision" value="approve" class="btn-primary">Approve</button>
+      <button name="decision" value="reject" class="btn-danger">Reject</button>
+    </div>
+  </form>
+  {% endif %}
+
+  <a href="{{ url('attendance:request_list') }}" class="btn-secondary w-fit">Back to requests</a>
+</div>
+{% endblock %}

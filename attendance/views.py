@@ -1,6 +1,7 @@
 import json
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import JsonResponse
@@ -9,17 +10,24 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from academics.models import ClassSession, Course, Enrolment
-from accounts.models import AppSetting
+from accounts.models import AppSetting, Role
 from accounts.permissions import (
     require_course_access,
+    role_required,
     staff_required,
     student_required,
     teacher_owns_course,
 )
 
-from .forms import AbsenceRequestForm
-from .models import COUNTS_AS_ATTENDED, AttendanceRecord, Status
-from .services import save_register
+from .forms import AbsenceRequestForm, ReviewForm
+from .models import (
+    COUNTS_AS_ATTENDED,
+    AbsenceRequest,
+    AttendanceRecord,
+    RequestStatus,
+    Status,
+)
+from .services import approve_request, reject_request, save_register
 
 
 @staff_required
@@ -193,5 +201,85 @@ def request_create(request):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Your absence request has been submitted.")
-        return redirect("accounts:dashboard")
+        return redirect("attendance:request_list")
     return render(request, "attendance/request_form.html", {"form": form})
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def request_list(request):
+    requests = AbsenceRequest.objects.select_related("student", "course", "reviewed_by")
+    if request.user.is_student:
+        requests = requests.filter(student=request.user)
+    elif request.user.is_teacher:
+        requests = requests.filter(course__teachers=request.user)
+
+    status = request.GET.get("status", "")
+    if status:
+        requests = requests.filter(status=status)
+
+    page = Paginator(requests, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "attendance/request_list.html",
+        {
+            "page": page,
+            "status": status,
+            "statuses": RequestStatus.choices,
+            "review_form": ReviewForm(),
+        },
+    )
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def request_detail(request, pk):
+    absence_request = get_object_or_404(
+        AbsenceRequest.objects.select_related("student", "course", "reviewed_by"),
+        pk=pk,
+    )
+    if request.user.is_student and absence_request.student_id != request.user.pk:
+        raise PermissionDenied("This request belongs to another student.")
+    if request.user.is_teacher and not teacher_owns_course(
+        request.user, absence_request.course
+    ):
+        raise PermissionDenied("You are not assigned to this course.")
+
+    return render(
+        request,
+        "attendance/request_detail.html",
+        {"object": absence_request, "review_form": ReviewForm()},
+    )
+
+
+@staff_required
+@require_POST
+def request_review(request, pk):
+    absence_request = get_object_or_404(AbsenceRequest, pk=pk)
+    require_course_access(request.user, absence_request.course)
+
+    if not absence_request.is_pending:
+        messages.error(request, "That request has already been decided.")
+        return redirect("attendance:request_list")
+
+    form = ReviewForm(request.POST)
+    comment = form.cleaned_data["comment"] if form.is_valid() else ""
+
+    if request.POST.get("decision") == "approve":
+        excused = approve_request(absence_request, request.user, comment)
+        messages.success(
+            request, f"Request approved, {excused} sessions marked as excused."
+        )
+    else:
+        reject_request(absence_request, request.user, comment)
+        messages.success(request, "Request rejected.")
+    return redirect("attendance:request_list")
+
+
+@student_required
+@require_POST
+def request_withdraw(request, pk):
+    absence_request = get_object_or_404(
+        AbsenceRequest, pk=pk, student=request.user, status=RequestStatus.PENDING
+    )
+    absence_request.delete()
+    messages.success(request, "Request withdrawn.")
+    return redirect("attendance:request_list")

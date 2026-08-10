@@ -1,7 +1,7 @@
 from django import forms
 
 from academics.models import Course
-from accounts.forms import StyledFormMixin
+from accounts.forms import StyledFormMixin, style
 
 from .models import AbsenceRequest
 
@@ -57,3 +57,14 @@ class AbsenceRequestForm(StyledFormMixin, forms.ModelForm):
         if commit:
             absence_request.save()
         return absence_request
+
+
+class ReviewForm(forms.Form):
+    comment = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2, "placeholder": "Optional comment"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        style(self.fields)

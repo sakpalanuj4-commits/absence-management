@@ -1,8 +1,12 @@
 from django.db import transaction
+from django.urls import reverse
+from django.utils import timezone
 
+from academics.models import ClassSession
 from accounts.models import Role, User
+from accounts.services import notify
 
-from .models import AttendanceRecord, Status
+from .models import AttendanceRecord, RequestStatus, Status
 
 
 @transaction.atomic
@@ -52,3 +56,71 @@ def save_register(session, marked_by, rows):
         written += 1
 
     return written
+
+
+def reviewers_for(course):
+    """The course teachers, or the administrators if it has none."""
+    teachers = list(course.teachers.filter(is_active=True))
+    if teachers:
+        return teachers
+    return list(User.objects.filter(role=Role.ADMIN, is_active=True))
+
+
+@transaction.atomic
+def approve_request(absence_request, reviewer, comment=""):
+    """Approve a request and excuse the sessions it covers.
+
+    Records are created where the register has not been taken yet.
+    """
+    absence_request.status = RequestStatus.APPROVED
+    absence_request.reviewed_by = reviewer
+    absence_request.review_comment = comment
+    absence_request.reviewed_at = timezone.now()
+    absence_request.save()
+
+    sessions = ClassSession.objects.filter(
+        course=absence_request.course,
+        date__gte=absence_request.start_date,
+        date__lte=absence_request.end_date,
+        is_cancelled=False,
+    )
+    excused = 0
+    for session in sessions:
+        AttendanceRecord.objects.update_or_create(
+            session=session,
+            student=absence_request.student,
+            defaults={
+                "status": Status.EXCUSED,
+                "marked_by": reviewer,
+                "remark": f"Excused: {absence_request.get_category_display()}",
+            },
+        )
+        excused += 1
+
+    notify(
+        absence_request.student,
+        f"Your absence request for {absence_request.course.code} was approved"
+        + (f": {comment}" if comment else "."),
+        link=reverse("attendance:request_list"),
+        email=True,
+        subject="Absence request approved",
+    )
+    return excused
+
+
+def reject_request(absence_request, reviewer, comment=""):
+    absence_request.status = RequestStatus.REJECTED
+    absence_request.reviewed_by = reviewer
+    absence_request.review_comment = comment
+    absence_request.reviewed_at = timezone.now()
+    absence_request.save()
+
+    notify(
+        absence_request.student,
+        f"Your absence request for {absence_request.course.code} was rejected"
+        + (f": {comment}" if comment else "."),
+        link=reverse("attendance:request_list"),
+        email=True,
+        subject="Absence request rejected",
+    )
+    return absence_request

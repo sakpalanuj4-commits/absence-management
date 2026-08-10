@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, status_badge, empty_state, field %}
+{% set page_id = 'requests' %}
+{% block title %}Absence requests{% endblock %}
+{% block heading %}Absence requests{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-end gap-2">
+  <form method="get" class="flex items-end gap-2">
+    <div>
+      <label class="label" for="status">Status</label>
+      <select class="input" name="status" id="status">
+        <option value="">All</option>
+        {% for value, label in statuses %}
+          <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn-secondary">Filter</button>
+  </form>
+  {% if request.user.is_student %}
+    <a href="{{ url('attendance:request_create') }}" class="btn-primary ml-auto">New request</a>
+  {% endif %}
+</div>
+
+{% if page.object_list %}
+<div class="space-y-3">
+  {% for item in page.object_list %}
+  <div class="card card-body">
+    <div class="flex flex-wrap items-start gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          {% if not request.user.is_student %}
+            <span class="font-medium text-slate-900">{{ item.student.display_name }}</span>
+          {% endif %}
+          <span class="font-mono text-xs text-slate-500">{{ item.course.code }}</span>
+          {{ status_badge(item.status) }}
+          <span class="badge bg-slate-100 text-slate-700">{{ item.get_category_display() }}</span>
+        </div>
+        <p class="mt-1 text-sm text-slate-600">
+          {{ item.start_date.strftime('%d %b %Y') }} - {{ item.end_date.strftime('%d %b %Y') }}
+          ({{ item.day_count }} day{{ 's' if item.day_count != 1 }})
+        </p>
+        <p class="mt-1 text-sm text-slate-700">{{ item.reason }}</p>
+        {% if item.document %}
+          <a href="{{ item.document.url }}" target="_blank" rel="noopener"
+             class="mt-1 inline-block text-xs text-indigo-600 hover:underline">View supporting document</a>
+        {% endif %}
+        {% if item.review_comment %}
+          <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <span class="font-medium">{{ item.reviewed_by.display_name if item.reviewed_by else 'Reviewer' }}:</span>
+            {{ item.review_comment }}
+          </p>
+        {% endif %}
+      </div>
+
+      <div class="w-full sm:w-72">
+        {% if item.is_pending and not request.user.is_student %}
+          <form method="post" action="{{ url('attendance:request_review', kwargs={'pk': item.pk}) }}" class="space-y-2">
+            {{ csrf_input }}
+            {{ field(review_form.comment) }}
+            <div class="flex gap-2">
+              <button name="decision" value="approve" class="btn-primary flex-1">Approve</button>
+              <button name="decision" value="reject" class="btn-danger flex-1">Reject</button>
+            </div>
+          </form>
+        {% elif item.is_pending and request.user.is_student %}
+          <form method="post" action="{{ url('attendance:request_withdraw', kwargs={'pk': item.pk}) }}">
+            {{ csrf_input }}
+            <button class="btn-secondary w-full">Withdraw</button>
+          </form>
+        {% else %}
+          <p class="text-xs text-slate-500">
+            Decided {{ item.reviewed_at.strftime('%d %b %Y') if item.reviewed_at else '' }}
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No absence requests found.',
+                 url('attendance:request_create') if request.user.is_student else '',
+                 'Submit a request') }}
+{% endif %}
+{% endblock %}

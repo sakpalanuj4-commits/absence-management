@@ -32,16 +32,22 @@
            class="{{ active_nav if page_id == 'departments' else nav }}">Departments</a>
         <a href="{{ url('academics:course_list') }}"
            class="{{ active_nav if page_id == 'courses' else nav }}">Courses</a>
+        <a href="{{ url('attendance:request_list') }}"
+           class="{{ active_nav if page_id == 'requests' else nav }}">Absence requests</a>
       {% elif request.user.is_teacher %}
         <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Teaching</p>
         <a href="{{ url('academics:course_list') }}"
            class="{{ active_nav if page_id == 'courses' else nav }}">My courses</a>
         <a href="{{ url('attendance:register_list') }}"
            class="{{ active_nav if page_id == 'registers' else nav }}">Registers</a>
+        <a href="{{ url('attendance:request_list') }}"
+           class="{{ active_nav if page_id == 'requests' else nav }}">Absence requests</a>
       {% else %}
         <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">My record</p>
         <a href="{{ url('attendance:my_attendance') }}"
            class="{{ active_nav if page_id == 'my_attendance' else nav }}">Attendance history</a>
+        <a href="{{ url('attendance:request_list') }}"
+           class="{{ active_nav if page_id == 'requests' else nav }}">Absence requests</a>
       {% endif %}
 
       <p class="px-3 pt-4 pb-1 text-xs uppercase tracking-wide text-slate-500">Account</p>
