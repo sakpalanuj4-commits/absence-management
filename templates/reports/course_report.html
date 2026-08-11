@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import stat_card, percent_bar %}
+{% set page_id = 'report' %}
+{% block title %}{{ course.code }} report{% endblock %}
+{% block heading %}{{ course.code }} - attendance report{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap justify-end gap-2">
+  <a href="{{ url('reports:export_csv') }}?course={{ course.pk }}" class="btn-secondary">Export CSV</a>
+  <a href="{{ url('reports:export_pdf') }}?course={{ course.pk }}" class="btn-secondary">Export PDF</a>
+  <a href="{{ url('academics:course_detail', kwargs={'pk': course.pk}) }}" class="btn-secondary">Course</a>
+</div>
+
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {{ stat_card('Attendance', (summary.percentage|percent) if summary.percentage is not none else '-') }}
+  {{ stat_card('Records', summary.total) }}
+  {{ stat_card('Absences', summary.absent, tone='rose') }}
+  {{ stat_card('Students', rows|length) }}
+</div>
+
+<div class="mt-4 card card-body">
+  <h2 class="mb-3 font-medium text-slate-900">Trend</h2>
+  <div class="h-56">
+    <canvas data-chart="line" data-src="{{ url('reports:chart_attendance_trend') }}?course={{ course.pk }}"></canvas>
+  </div>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">By student</h2>
+    <div class="max-h-[28rem] overflow-y-auto">
+      <table class="table">
+        <thead><tr><th>Student</th><th>Attendance</th><th>Absent</th></tr></thead>
+        <tbody>
+          {% for row in rows %}
+          <tr class="{{ 'bg-rose-50/50' if row.below_threshold }}">
+            <td class="font-medium text-slate-900">{{ row.student.display_name }}</td>
+            <td>{{ percent_bar(row.percentage or 0, threshold) }}</td>
+            <td class="{{ 'font-medium text-rose-600' if row.absent else 'text-slate-600' }}">{{ row.absent }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">By session</h2>
+    <div class="max-h-[28rem] overflow-y-auto">
+      <table class="table">
+        <thead><tr><th>Date</th><th>Marked</th><th>Attendance</th></tr></thead>
+        <tbody>
+          {% for session in sessions %}
+          <tr class="{{ 'opacity-60' if session.is_cancelled }}">
+            <td class="font-medium text-slate-900">{{ session.date.strftime('%d %b %Y') }}</td>
+            <td class="text-slate-600">{{ session.total }}</td>
+            <td>
+              {% if session.total %}
+                {{ percent_bar(session.attended * 100 / session.total, threshold) }}
+              {% else %}
+                <span class="badge bg-amber-100 text-amber-800">Not marked</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ static('js/charts.js') }}"></script>{% endblock %}

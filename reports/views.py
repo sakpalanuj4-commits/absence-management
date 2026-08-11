@@ -1,10 +1,19 @@
-from django.db.models import Count
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from django.shortcuts import render
 from django.utils import timezone
 
-from academics.models import ClassSession, Course
-from accounts.permissions import admin_required, student_required, teacher_required
-from attendance.models import AbsenceRequest, RequestStatus
+from academics.models import ClassSession, Course, Department
+from accounts.models import Role
+from accounts.permissions import (
+    admin_required,
+    require_course_access,
+    role_required,
+    staff_required,
+    student_required,
+    teacher_required,
+)
+from attendance.models import AbsenceRequest, RequestStatus, Status
 
 from . import services
 
@@ -84,5 +93,60 @@ def student_dashboard(request):
             "upcoming": upcoming,
             "notifications": request.user.notifications.all()[:5],
             "requests": AbsenceRequest.objects.filter(student=request.user)[:5],
+        },
+    )
+
+
+def filtered_records(request):
+    return services.apply_filters(services.visible_records(request.user), request.GET)
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def attendance_report(request):
+    records = filtered_records(request).order_by(
+        "-session__date", "session__start_time", "student__last_name"
+    )
+    page = Paginator(records, 50).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "reports/attendance_report.html",
+        {
+            "page": page,
+            "summary": services.overall_summary(records),
+            "courses": services.visible_courses(request.user),
+            "departments": Department.objects.all(),
+            "statuses": Status.choices,
+            "threshold": services.threshold(),
+            "filters": request.GET,
+            "query_string": request.GET.urlencode(),
+        },
+    )
+
+
+@staff_required
+def course_report(request, course_pk):
+    course = Course.objects.select_related("department").get(pk=course_pk)
+    require_course_access(request.user, course)
+    return render(
+        request,
+        "reports/course_report.html",
+        {
+            "course": course,
+            "summary": services.course_summary(course),
+            "rows": services.course_student_rows(course),
+            "threshold": services.threshold(),
+            "sessions": course.sessions.annotate(
+                total=Count("attendance_records"),
+                attended=Count(
+                    "attendance_records",
+                    filter=Q(
+                        attendance_records__status__in=[
+                            Status.PRESENT,
+                            Status.LATE,
+                            Status.EXCUSED,
+                        ]
+                    ),
+                ),
+            )[:20],
         },
     )

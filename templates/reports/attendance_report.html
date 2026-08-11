@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import pagination, stat_card, status_badge, empty_state %}
+{% set page_id = 'report' %}
+{% block title %}Attendance report{% endblock %}
+{% block heading %}Attendance report{% endblock %}
+
+{% block content %}
+<form method="get" class="card card-body mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+  <div>
+    <label class="label" for="course">Course</label>
+    <select class="input" name="course" id="course">
+      <option value="">All</option>
+      {% for course in courses %}
+        <option value="{{ course.pk }}" {{ 'selected' if filters.get('course') == course.pk|string }}>{{ course.code }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if request.user.is_admin %}
+  <div>
+    <label class="label" for="department">Department</label>
+    <select class="input" name="department" id="department">
+      <option value="">All</option>
+      {% for department in departments %}
+        <option value="{{ department.pk }}" {{ 'selected' if filters.get('department') == department.pk|string }}>{{ department.code }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div>
+    <label class="label" for="status">Status</label>
+    <select class="input" name="status" id="status">
+      <option value="">All</option>
+      {% for value, label in statuses %}
+        <option value="{{ value }}" {{ 'selected' if filters.get('status') == value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="label" for="from">From</label>
+    <input class="input" type="date" name="from" id="from" value="{{ filters.get('from', '') }}">
+  </div>
+  <div>
+    <label class="label" for="to">To</label>
+    <input class="input" type="date" name="to" id="to" value="{{ filters.get('to', '') }}">
+  </div>
+  <div class="flex items-end gap-2">
+    <button class="btn-primary">Apply</button>
+    <a href="{{ url('reports:attendance_report') }}" class="btn-secondary">Clear</a>
+  </div>
+</form>
+
+<div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+  {{ stat_card('Attendance', (summary.percentage|percent) if summary.percentage is not none else '-') }}
+  {{ stat_card('Records', summary.total) }}
+  {{ stat_card('Present', summary.present, tone='emerald') }}
+  {{ stat_card('Absent', summary.absent, tone='rose') }}
+  {{ stat_card('Late / excused', summary.late ~ ' / ' ~ summary.excused, tone='amber') }}
+</div>
+
+<div class="mb-4 grid gap-4 lg:grid-cols-3">
+  <div class="card card-body lg:col-span-2">
+    <h2 class="mb-3 font-medium text-slate-900">Trend</h2>
+    <div class="h-56">
+      <canvas data-chart="line" data-src="{{ url('reports:chart_attendance_trend') }}{{ '?' ~ query_string if query_string }}"></canvas>
+    </div>
+  </div>
+  <div class="card card-body">
+    <h2 class="mb-3 font-medium text-slate-900">Breakdown</h2>
+    <div class="h-56">
+      <canvas data-chart="doughnut" data-src="{{ url('reports:chart_status_distribution') }}{{ '?' ~ query_string if query_string }}"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="mb-3 flex justify-end gap-2">
+  <a href="{{ url('reports:export_csv') }}{{ '?' ~ query_string if query_string }}" class="btn-secondary">Export CSV</a>
+  <a href="{{ url('reports:export_pdf') }}{{ '?' ~ query_string if query_string }}" class="btn-secondary">Export PDF</a>
+</div>
+
+{% if page.object_list %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead>
+      <tr><th>Date</th><th>Course</th><th>Student</th><th>Status</th><th>Remark</th><th>Marked by</th></tr>
+    </thead>
+    <tbody>
+      {% for record in page.object_list %}
+      <tr>
+        <td class="text-slate-600">{{ record.session.date.strftime('%d %b %Y') }}</td>
+        <td><span class="font-mono text-xs">{{ record.session.course.code }}</span></td>
+        <td class="font-medium text-slate-900">{{ record.student.display_name }}</td>
+        <td>{{ status_badge(record.status) }}</td>
+        <td class="text-xs text-slate-500">{{ record.remark or '-' }}</td>
+        <td class="text-xs text-slate-500">{{ record.marked_by.display_name if record.marked_by else '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pagination(page, request) }}
+{% else %}
+  {{ empty_state('No attendance records match these filters.') }}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="{{ static('js/charts.js') }}"></script>{% endblock %}

@@ -155,6 +155,30 @@ def visible_records(user):
     return records.filter(student=user)
 
 
+def apply_filters(records, params):
+    """Apply the report filters taken from a query string."""
+    course = params.get("course")
+    department = params.get("department")
+    student = params.get("student")
+    status = params.get("status")
+    date_from = params.get("from")
+    date_to = params.get("to")
+
+    if course:
+        records = records.filter(session__course_id=course)
+    if department:
+        records = records.filter(session__course__department_id=department)
+    if student:
+        records = records.filter(student_id=student)
+    if status:
+        records = records.filter(status=status)
+    if date_from:
+        records = records.filter(session__date__gte=date_from)
+    if date_to:
+        records = records.filter(session__date__lte=date_to)
+    return records
+
+
 def visible_courses(user):
     courses = Course.objects.select_related("department")
     if user.is_teacher:
