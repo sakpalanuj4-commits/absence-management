@@ -18,4 +18,9 @@ urlpatterns = [
         views.request_withdraw,
         name="request_withdraw",
     ),
+    path(
+        "courses/<int:course_pk>/attendance/",
+        views.course_attendance,
+        name="course_attendance",
+    ),
 ]

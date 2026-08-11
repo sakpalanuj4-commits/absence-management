@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import stat_card, percent_bar, empty_state %}
+{% set page_id = 'courses' %}
+{% block title %}Attendance - {{ course.code }}{% endblock %}
+{% block heading %}Attendance - {{ course.code }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 grid gap-3 sm:grid-cols-4">
+  {{ stat_card('Attendance', (summary.percentage|percent) if summary.percentage is not none else '-') }}
+  {{ stat_card('Records', summary.total) }}
+  {{ stat_card('Absences', summary.absent, tone='rose') }}
+  {{ stat_card('Below threshold', flagged|length, tone='amber') }}
+</div>
+
+{% if rows %}
+<div class="card overflow-x-auto">
+  <table class="table">
+    <thead><tr><th>Student</th><th>Attendance</th><th>Present</th><th>Late</th><th>Excused</th><th>Absent</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="{{ 'bg-rose-50/50' if row.below_threshold }}">
+        <td>
+          <p class="font-medium text-slate-900">{{ row.student.display_name }}</p>
+          <p class="font-mono text-xs text-slate-500">{{ row.student.username }}</p>
+        </td>
+        <td>{{ percent_bar(row.percentage or 0, threshold) }}</td>
+        <td class="text-slate-600">{{ row.present }}</td>
+        <td class="text-slate-600">{{ row.late }}</td>
+        <td class="text-slate-600">{{ row.excused }}</td>
+        <td class="font-medium {{ 'text-rose-600' if row.absent else 'text-slate-600' }}">{{ row.absent }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  {{ empty_state('No students enrolled on this course.') }}
+{% endif %}
+{% endblock %}

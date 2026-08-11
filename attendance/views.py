@@ -3,14 +3,14 @@ import json
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from academics.models import ClassSession, Course, Enrolment
-from accounts.models import AppSetting, Role
+from academics.models import ClassSession, Course
+from accounts.models import Role
 from accounts.permissions import (
     require_course_access,
     role_required,
@@ -18,18 +18,14 @@ from accounts.permissions import (
     student_required,
     teacher_owns_course,
 )
+from reports import services
 
 from .forms import AbsenceRequestForm, ReviewForm
-from .models import (
-    COUNTS_AS_ATTENDED,
-    AbsenceRequest,
-    AttendanceRecord,
-    RequestStatus,
-    Status,
-)
+from .models import AbsenceRequest, AttendanceRecord, RequestStatus, Status
 from .services import (
     approve_request,
     notify_absent_students,
+    notify_low_attendance,
     reject_request,
     save_register,
     submit_request,
@@ -56,17 +52,13 @@ def register_list(request):
     elif state == "marked":
         sessions = sessions.filter(marked__gt=0)
 
-    courses = Course.objects.all()
-    if request.user.is_teacher:
-        courses = courses.filter(teachers=request.user)
-
     page = Paginator(sessions, 25).get_page(request.GET.get("page"))
     return render(
         request,
         "attendance/register_list.html",
         {
             "page": page,
-            "courses": courses,
+            "courses": services.visible_courses(request.user),
             "course_id": course_id,
             "state": state,
         },
@@ -126,92 +118,45 @@ def register_save(request, session_pk):
     if not isinstance(rows, list):
         return JsonResponse({"ok": False, "error": "Malformed request."}, status=400)
 
-    written, newly_absent, _ = save_register(session, request.user, rows)
+    written, newly_absent, marked_students = save_register(session, request.user, rows)
     notify_absent_students(session, newly_absent)
+    notify_low_attendance(session.course, marked_students, services.threshold())
+
+    summary = services.session_summary(session)
     return JsonResponse(
-        {"ok": True, "saved": written, "absent_notified": len(newly_absent)}
+        {
+            "ok": True,
+            "saved": written,
+            "absent_notified": len(newly_absent),
+            "summary": {
+                "present": summary["present"],
+                "absent": summary["absent"],
+                "late": summary["late"],
+                "excused": summary["excused"],
+                "percentage": summary["percentage"],
+            },
+        }
     )
-
-
-def course_rows_for(student, limit):
-    """Attendance per course for one student."""
-    rows = []
-    enrolments = (
-        Enrolment.objects.filter(student=student, is_active=True)
-        .select_related("course")
-        .order_by("course__code")
-    )
-    for enrolment in enrolments:
-        counts = AttendanceRecord.objects.filter(
-            student=student,
-            session__course=enrolment.course,
-            session__is_cancelled=False,
-        ).aggregate(
-            total=Count("id"),
-            attended=Count("id", filter=Q(status__in=COUNTS_AS_ATTENDED)),
-            absent=Count("id", filter=Q(status=Status.ABSENT)),
-        )
-        percentage = (
-            round(counts["attended"] * 100 / counts["total"], 1)
-            if counts["total"]
-            else None
-        )
-        rows.append(
-            {
-                "course": enrolment.course,
-                "total": counts["total"],
-                "attended": counts["attended"],
-                "absent": counts["absent"],
-                "percentage": percentage,
-                "below_threshold": percentage is not None and percentage < limit,
-            }
-        )
-    return rows
 
 
 @student_required
 def my_attendance(request):
-    records = AttendanceRecord.objects.filter(student=request.user).select_related(
-        "session", "session__course"
-    )
-    if request.GET.get("course"):
-        records = records.filter(session__course_id=request.GET["course"])
-    if request.GET.get("status"):
-        records = records.filter(status=request.GET["status"])
-    if request.GET.get("from"):
-        records = records.filter(session__date__gte=request.GET["from"])
-    if request.GET.get("to"):
-        records = records.filter(session__date__lte=request.GET["to"])
-    records = records.order_by("-session__date", "session__start_time")
-
-    limit = AppSetting.attendance_threshold()
+    records = services.apply_filters(
+        services.visible_records(request.user), request.GET
+    ).order_by("-session__date", "session__start_time")
     page = Paginator(records, 30).get_page(request.GET.get("page"))
     return render(
         request,
         "attendance/my_attendance.html",
         {
             "page": page,
-            "rows": course_rows_for(request.user, limit),
-            "courses": Course.objects.filter(
-                enrolments__student=request.user, enrolments__is_active=True
-            ),
+            "rows": services.student_course_rows(request.user),
+            "courses": services.visible_courses(request.user),
             "statuses": Status.choices,
-            "threshold": limit,
+            "threshold": services.threshold(),
             "filters": request.GET,
         },
     )
-
-
-@student_required
-def request_create(request):
-    form = AbsenceRequestForm(
-        request.POST or None, request.FILES or None, student=request.user
-    )
-    if request.method == "POST" and form.is_valid():
-        submit_request(form.save(commit=False))
-        messages.success(request, "Your absence request has been submitted.")
-        return redirect("attendance:request_list")
-    return render(request, "attendance/request_form.html", {"form": form})
 
 
 @role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
@@ -237,6 +182,18 @@ def request_list(request):
             "review_form": ReviewForm(),
         },
     )
+
+
+@student_required
+def request_create(request):
+    form = AbsenceRequestForm(
+        request.POST or None, request.FILES or None, student=request.user
+    )
+    if request.method == "POST" and form.is_valid():
+        submit_request(form.save(commit=False))
+        messages.success(request, "Your absence request has been submitted.")
+        return redirect("attendance:request_list")
+    return render(request, "attendance/request_form.html", {"form": form})
 
 
 @role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
@@ -292,3 +249,21 @@ def request_withdraw(request, pk):
     absence_request.delete()
     messages.success(request, "Request withdrawn.")
     return redirect("attendance:request_list")
+
+
+@staff_required
+def course_attendance(request, course_pk):
+    course = get_object_or_404(Course, pk=course_pk)
+    require_course_access(request.user, course)
+    rows = services.course_student_rows(course)
+    return render(
+        request,
+        "attendance/course_attendance.html",
+        {
+            "course": course,
+            "rows": rows,
+            "summary": services.course_summary(course),
+            "threshold": services.threshold(),
+            "flagged": [r for r in rows if r["below_threshold"]],
+        },
+    )

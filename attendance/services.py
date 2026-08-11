@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from academics.models import ClassSession
-from accounts.models import Role, User
+from accounts.models import Notification, Role, User
 from accounts.services import notify
 
 from .models import AttendanceRecord, RequestStatus, Status
@@ -80,6 +80,36 @@ def notify_absent_students(session, students):
             link=link,
             email=True,
             subject=f"Absence recorded: {session.course.code}",
+        )
+
+
+def notify_low_attendance(course, students, limit):
+    """Warn students who have dropped below the threshold on this course.
+
+    A student with an unread warning already is skipped, otherwise every save
+    of the register would repeat it.
+    """
+    from reports.services import student_course_summary
+
+    link = reverse("attendance:my_attendance")
+    for student in students:
+        summary = student_course_summary(student, course)
+        if summary["percentage"] is None or summary["percentage"] >= limit:
+            continue
+        already_warned = Notification.objects.filter(
+            recipient=student,
+            is_read=False,
+            message__startswith=f"Your attendance for {course.code}",
+        ).exists()
+        if already_warned:
+            continue
+        notify(
+            student,
+            f"Your attendance for {course.code} is {summary['percentage']}%, "
+            f"below the required {limit}%.",
+            link=link,
+            email=True,
+            subject=f"Low attendance warning: {course.code}",
         )
 
 
