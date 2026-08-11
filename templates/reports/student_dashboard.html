@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import stat_card, percent_bar, status_badge %}
+{% set page_id = 'dashboard' %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Hello, {{ request.user.first_name or request.user.username }}{% endblock %}
+
+{% block content %}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {{ stat_card('Overall attendance',
+               (summary.percentage|percent) if summary.percentage is not none else '-',
+               'Required: ' ~ threshold ~ '%') }}
+  {{ stat_card('Sessions attended', summary.attended, 'of ' ~ summary.total ~ ' recorded') }}
+  {{ stat_card('Absences', summary.absent, tone='rose') }}
+  {{ stat_card('Courses at risk', at_risk|length, tone='amber') }}
+</div>
+
+{% if at_risk %}
+<div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  Your attendance is below {{ threshold }}% in
+  {% for row in at_risk %}<strong>{{ row.course.code }}</strong>{{ ', ' if not loop.last }}{% endfor %}.
+  If you have a valid reason, <a href="{{ url('attendance:request_create') }}" class="underline">submit an absence request</a>.
+</div>
+{% endif %}
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+  <div class="card card-body lg:col-span-2">
+    <h2 class="mb-3 font-medium text-slate-900">My attendance trend</h2>
+    <div class="h-56">
+      <canvas data-chart="line" data-src="{{ url('reports:chart_attendance_trend') }}"></canvas>
+    </div>
+  </div>
+  <div class="card card-body">
+    <h2 class="mb-3 font-medium text-slate-900">Status breakdown</h2>
+    <div class="h-56">
+      <canvas data-chart="doughnut" data-src="{{ url('reports:chart_status_distribution') }}"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4 card">
+  <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+    <h2 class="font-medium text-slate-900">Attendance by course</h2>
+    <a href="{{ url('attendance:my_attendance') }}" class="btn-secondary text-xs">Full history</a>
+  </div>
+  <table class="table">
+    <thead><tr><th>Course</th><th>Attendance</th><th>Attended</th><th>Absent</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="{{ 'bg-rose-50/50' if row.below_threshold }}">
+        <td>
+          <span class="font-mono text-xs">{{ row.course.code }}</span>
+          <span class="text-slate-700">{{ row.course.name }}</span>
+        </td>
+        <td>{{ percent_bar(row.percentage or 0, threshold) }}</td>
+        <td class="text-slate-600">{{ row.attended }} / {{ row.total }}</td>
+        <td class="{{ 'font-medium text-rose-600' if row.absent else 'text-slate-600' }}">{{ row.absent }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+  <div class="card lg:col-span-2">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">Upcoming sessions</h2>
+    {% if upcoming %}
+      <table class="table">
+        <thead><tr><th>Date</th><th>Course</th><th>Time</th><th>Room</th></tr></thead>
+        <tbody>
+          {% for session in upcoming %}
+          <tr>
+            <td class="font-medium text-slate-900">{{ session.date.strftime('%a %d %b') }}</td>
+            <td><span class="font-mono text-xs">{{ session.course.code }}</span> {{ session.course.name }}</td>
+            <td class="text-slate-600">{{ session.start_time.strftime('%H:%M') }}</td>
+            <td class="text-slate-600">{{ session.room or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="p-4 text-sm text-slate-500">No sessions scheduled.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">Recent notifications</h2>
+    {% if notifications %}
+      <ul class="divide-y divide-slate-100">
+        {% for item in notifications %}
+        <li class="px-4 py-3">
+          <p class="text-sm text-slate-700">{{ item.message }}</p>
+          <p class="mt-0.5 text-xs text-slate-400">{{ item.created_at.strftime('%d %b, %H:%M') }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="p-4 text-sm text-slate-500">Nothing new.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if requests %}
+<div class="mt-4 card">
+  <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+    <h2 class="font-medium text-slate-900">My absence requests</h2>
+    <a href="{{ url('attendance:request_create') }}" class="btn-primary text-xs">New request</a>
+  </div>
+  <table class="table">
+    <thead><tr><th>Course</th><th>Dates</th><th>Category</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for item in requests %}
+      <tr>
+        <td class="font-mono text-xs">{{ item.course.code }}</td>
+        <td class="text-slate-600">{{ item.start_date.strftime('%d %b') }} - {{ item.end_date.strftime('%d %b') }}</td>
+        <td class="text-slate-600">{{ item.get_category_display() }}</td>
+        <td>{{ status_badge(item.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="{{ static('js/charts.js') }}"></script>{% endblock %}

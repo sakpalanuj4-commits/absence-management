@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import stat_card, percent_bar, empty_state %}
+{% set page_id = 'dashboard' %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Institution overview{% endblock %}
+
+{% block content %}
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  {{ stat_card('Overall attendance',
+               (summary.percentage|percent) if summary.percentage is not none else '-',
+               'Across all courses') }}
+  {{ stat_card('Active students', student_count) }}
+  {{ stat_card('Active courses', course_count) }}
+  {{ stat_card('Below ' ~ threshold ~ '%', flagged|length, 'Student/course combinations', tone='rose') }}
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+  <div class="card card-body lg:col-span-2">
+    <h2 class="mb-3 font-medium text-slate-900">Attendance trend</h2>
+    <div class="h-64">
+      <canvas data-chart="line" data-src="{{ url('reports:chart_attendance_trend') }}"></canvas>
+    </div>
+  </div>
+  <div class="card card-body">
+    <h2 class="mb-3 font-medium text-slate-900">Status breakdown</h2>
+    <div class="h-64">
+      <canvas data-chart="doughnut" data-src="{{ url('reports:chart_status_distribution') }}"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4 card card-body">
+  <h2 class="mb-3 font-medium text-slate-900">Attendance by course</h2>
+  <div class="h-64">
+    <canvas data-chart="bar" data-src="{{ url('reports:chart_course_comparison') }}"></canvas>
+  </div>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">Students below the threshold</h2>
+    {% if flagged %}
+      <table class="table">
+        <thead><tr><th>Student</th><th>Course</th><th>Attendance</th></tr></thead>
+        <tbody>
+          {% for row in flagged %}
+          <tr>
+            <td class="font-medium text-slate-900">{{ row.student.display_name }}</td>
+            <td class="font-mono text-xs text-slate-600">{{ row.course.code }}</td>
+            <td>{{ percent_bar(row.percentage, threshold) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="p-4 text-sm text-slate-500">Every student is above the threshold.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">Registers not taken</h2>
+    {% if unmarked %}
+      <table class="table">
+        <thead><tr><th>Date</th><th>Course</th><th class="text-right"></th></tr></thead>
+        <tbody>
+          {% for session in unmarked %}
+          <tr>
+            <td class="text-slate-600">{{ session.date.strftime('%d %b') }}</td>
+            <td><span class="font-mono text-xs">{{ session.course.code }}</span> {{ session.course.name }}</td>
+            <td class="text-right">
+              <a href="{{ url('attendance:register', kwargs={'session_pk': session.pk}) }}" class="btn-secondary text-xs">Mark</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="p-4 text-sm text-slate-500">All registers are up to date.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">Pending absence requests</h2>
+    {% if pending_requests %}
+      <table class="table">
+        <thead><tr><th>Student</th><th>Course</th><th>Dates</th></tr></thead>
+        <tbody>
+          {% for item in pending_requests %}
+          <tr>
+            <td class="font-medium text-slate-900">
+              <a href="{{ url('attendance:request_detail', kwargs={'pk': item.pk}) }}" class="text-indigo-600 hover:underline">{{ item.student.display_name }}</a>
+            </td>
+            <td class="font-mono text-xs text-slate-600">{{ item.course.code }}</td>
+            <td class="text-slate-600">{{ item.start_date.strftime('%d %b') }} - {{ item.end_date.strftime('%d %b') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="p-4 text-sm text-slate-500">Nothing waiting for a decision.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 class="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">By department</h2>
+    <table class="table">
+      <thead><tr><th>Department</th><th>Records</th><th>Attendance</th></tr></thead>
+      <tbody>
+        {% for row in departments %}
+        <tr>
+          <td class="font-medium text-slate-900">{{ row.department.name }}</td>
+          <td class="text-slate-600">{{ row.total }}</td>
+          <td>{{ percent_bar(row.percentage or 0, threshold) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ static('js/charts.js') }}"></script>{% endblock %}

@@ -71,8 +71,11 @@ class PasswordResetCompleteView(auth_views.PasswordResetCompleteView):
 
 @login_required
 def dashboard(request):
-    # The real per-role dashboards arrive with the reports app.
-    return render(request, "accounts/dashboard.html", {"page_id": "dashboard"})
+    if request.user.is_admin:
+        return redirect("reports:admin_dashboard")
+    if request.user.is_teacher:
+        return redirect("reports:teacher_dashboard")
+    return redirect("reports:student_dashboard")
 
 
 @login_required

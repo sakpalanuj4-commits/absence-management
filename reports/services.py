@@ -1,7 +1,8 @@
 from django.db.models import Count, Q
+from django.utils import timezone
 
-from academics.models import ClassSession, Enrolment
-from accounts.models import AppSetting, User
+from academics.models import ClassSession, Course, Department, Enrolment
+from accounts.models import AppSetting, Role, User
 from attendance.models import COUNTS_AS_ATTENDED, AttendanceRecord, Status
 
 
@@ -99,3 +100,83 @@ def overall_summary(records=None):
     if records is None:
         records = AttendanceRecord.objects.all()
     return summarise(records)
+
+
+def students_below_threshold(courses=None):
+    course_qs = Course.objects.filter(is_active=True)
+    if courses is not None:
+        course_qs = course_qs.filter(pk__in=[c.pk for c in courses])
+    flagged = []
+    for course in course_qs:
+        for row in course_student_rows(course):
+            if row["below_threshold"]:
+                flagged.append(
+                    {
+                        "student": row["student"],
+                        "course": course,
+                        "percentage": row["percentage"],
+                        "absent": row["absent"],
+                    }
+                )
+    flagged.sort(key=lambda r: r["percentage"])
+    return flagged
+
+
+def department_rows():
+    rows = []
+    for department in Department.objects.all():
+        summary = summarise(
+            AttendanceRecord.objects.filter(session__course__department=department)
+        )
+        summary["department"] = department
+        rows.append(summary)
+    return rows
+
+
+def course_rows(courses=None):
+    if courses is None:
+        courses = Course.objects.filter(is_active=True)
+    rows = []
+    for course in courses:
+        summary = course_summary(course)
+        summary["course"] = course
+        rows.append(summary)
+    return rows
+
+
+def visible_records(user):
+    records = AttendanceRecord.objects.select_related(
+        "session", "session__course", "student"
+    )
+    if user.is_admin:
+        return records
+    if user.is_teacher:
+        return records.filter(session__course__teachers=user)
+    return records.filter(student=user)
+
+
+def visible_courses(user):
+    courses = Course.objects.select_related("department")
+    if user.is_teacher:
+        return courses.filter(teachers=user)
+    if user.is_student:
+        return courses.filter(enrolments__student=user, enrolments__is_active=True)
+    return courses
+
+
+def unmarked_sessions(user, limit=None):
+    """Past sessions with no register taken yet."""
+    sessions = (
+        ClassSession.objects.filter(is_cancelled=False, date__lte=timezone.localdate())
+        .annotate(marked=Count("attendance_records"))
+        .filter(marked=0)
+        .select_related("course")
+        .order_by("-date")
+    )
+    if user.is_teacher:
+        sessions = sessions.filter(course__teachers=user)
+    return sessions[:limit] if limit else sessions
+
+
+def student_count():
+    return User.objects.filter(role=Role.STUDENT, is_active=True).count()
