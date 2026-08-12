@@ -1,4 +1,5 @@
 from django.db.models import Count, Q
+from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 
 from academics.models import ClassSession, Course, Department, Enrolment
@@ -142,6 +143,57 @@ def course_rows(courses=None):
         summary["course"] = course
         rows.append(summary)
     return rows
+
+
+def trend(records, bucket="week"):
+    """Attendance percentage over time, oldest first."""
+    trunc = TruncMonth if bucket == "month" else TruncWeek
+    rows = (
+        records.filter(LIVE_SESSION_FILTER)
+        .annotate(period=trunc("session__date"))
+        .values("period")
+        .annotate(
+            total=Count("id"),
+            attended=Count("id", filter=ATTENDED_FILTER),
+        )
+        .order_by("period")
+    )
+    return [
+        {
+            "label": row["period"].strftime("%d %b %Y"),
+            "value": percentage(row["attended"], row["total"]) or 0,
+        }
+        for row in rows
+        if row["period"]
+    ]
+
+
+def status_distribution(records):
+    counts = {label: 0 for _, label in Status.choices}
+    labels = dict(Status.choices)
+    rows = records.filter(LIVE_SESSION_FILTER).values("status").annotate(total=Count("id"))
+    for row in rows:
+        counts[labels.get(row["status"], row["status"])] = row["total"]
+    return [{"label": key, "value": value} for key, value in counts.items()]
+
+
+def course_comparison(records, limit=10):
+    rows = (
+        records.filter(LIVE_SESSION_FILTER)
+        .values("session__course__code")
+        .annotate(
+            total=Count("id"),
+            attended=Count("id", filter=ATTENDED_FILTER),
+        )
+        .order_by("session__course__code")[:limit]
+    )
+    return [
+        {
+            "label": row["session__course__code"],
+            "value": percentage(row["attended"], row["total"]) or 0,
+        }
+        for row in rows
+    ]
 
 
 def visible_records(user):

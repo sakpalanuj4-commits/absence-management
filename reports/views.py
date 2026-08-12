@@ -1,5 +1,6 @@
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -150,3 +151,34 @@ def course_report(request, course_pk):
             )[:20],
         },
     )
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def chart_attendance_trend(request):
+    records = filtered_records(request)
+    bucket = "month" if request.GET.get("bucket") == "month" else "week"
+    return JsonResponse({"data": services.trend(records, bucket)})
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def chart_status_distribution(request):
+    data = services.status_distribution(filtered_records(request))
+    return JsonResponse({"data": data})
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def chart_course_comparison(request):
+    data = services.course_comparison(filtered_records(request))
+    return JsonResponse({"data": data})
+
+
+EXPORT_COLUMNS = [
+    "Date",
+    "Course code",
+    "Course",
+    "Student",
+    "Username",
+    "Status",
+    "Remark",
+    "Marked by",
+]
