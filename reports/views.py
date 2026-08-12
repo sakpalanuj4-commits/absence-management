@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from academics.models import ClassSession, Course, Department
@@ -209,4 +210,32 @@ def export_csv(request):
     writer = csv.writer(response)
     writer.writerow(EXPORT_COLUMNS)
     writer.writerows(export_rows(records))
+    return response
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def export_pdf(request):
+    """Render the report as PDF, or as a printable page if WeasyPrint is
+    not installed on this machine."""
+    records = filtered_records(request).order_by("-session__date")[:2000]
+    context = {
+        "summary": services.overall_summary(filtered_records(request)),
+        "generated": timezone.localtime(),
+        "user": request.user,
+        "columns": EXPORT_COLUMNS,
+        "rows": list(export_rows(records)),
+    }
+    html = render_to_string("reports/export.html", context, request=request)
+
+    try:
+        from weasyprint import HTML
+    except (ImportError, OSError):
+        response = HttpResponse(html)
+        response["X-PDF-Fallback"] = "weasyprint-unavailable"
+        return response
+
+    pdf = HTML(string=html, base_url=request.build_absolute_uri()).write_pdf()
+    stamp = timezone.localdate().strftime("%Y%m%d")
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="attendance-{stamp}.pdf"'
     return response

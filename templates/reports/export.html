@@ -1,0 +1,49 @@
+{# Styling is inline because WeasyPrint does not load the Tailwind build. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Attendance report</title>
+  <style>
+    @page { size: A4 landscape; margin: 14mm; }
+    body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10px; color: #1e293b; }
+    h1 { font-size: 16px; margin: 0 0 4px; }
+    .meta { color: #64748b; font-size: 9px; margin-bottom: 12px; }
+    .summary { margin-bottom: 12px; }
+    .summary span { display: inline-block; margin-right: 18px; }
+    .summary strong { font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f1f5f9; text-align: left; padding: 5px 6px; border-bottom: 1px solid #cbd5e1;
+         font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
+    td { padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }
+    tr:nth-child(even) td { background: #f8fafc; }
+  </style>
+</head>
+<body>
+  <h1>Attendance report</h1>
+  <p class="meta">
+    Generated {{ generated.strftime('%d %B %Y at %H:%M') }} by {{ user.display_name }}
+    ({{ user.get_role_display() }}) - Absence Management System
+  </p>
+
+  <div class="summary">
+    <span>Attendance <strong>{{ ('%.1f'|format(summary.percentage)) ~ '%' if summary.percentage is not none else '-' }}</strong></span>
+    <span>Records <strong>{{ summary.total }}</strong></span>
+    <span>Present <strong>{{ summary.present }}</strong></span>
+    <span>Absent <strong>{{ summary.absent }}</strong></span>
+    <span>Late <strong>{{ summary.late }}</strong></span>
+    <span>Excused <strong>{{ summary.excused }}</strong></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
