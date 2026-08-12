@@ -1,6 +1,8 @@
+import csv
+
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -182,3 +184,29 @@ EXPORT_COLUMNS = [
     "Remark",
     "Marked by",
 ]
+
+
+def export_rows(records):
+    for record in records:
+        yield [
+            record.session.date.strftime("%Y-%m-%d"),
+            record.session.course.code,
+            record.session.course.name,
+            record.student.display_name,
+            record.student.username,
+            record.get_status_display(),
+            record.remark,
+            record.marked_by.display_name if record.marked_by else "",
+        ]
+
+
+@role_required(Role.ADMIN, Role.TEACHER, Role.STUDENT)
+def export_csv(request):
+    records = filtered_records(request).order_by("-session__date")
+    response = HttpResponse(content_type="text/csv")
+    stamp = timezone.localdate().strftime("%Y%m%d")
+    response["Content-Disposition"] = f'attachment; filename="attendance-{stamp}.csv"'
+    writer = csv.writer(response)
+    writer.writerow(EXPORT_COLUMNS)
+    writer.writerows(export_rows(records))
+    return response

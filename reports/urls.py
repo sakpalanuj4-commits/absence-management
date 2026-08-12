@@ -25,4 +25,5 @@ urlpatterns = [
         views.chart_course_comparison,
         name="chart_course_comparison",
     ),
+    path("export/csv/", views.export_csv, name="export_csv"),
 ]
