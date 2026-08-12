@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import form_fields %}
+{% set page_id = 'settings' %}
+{% block title %}Settings{% endblock %}
+{% block heading %}System settings{% endblock %}
+
+{% block content %}
+<form method="post" class="card card-body max-w-md space-y-4">
+  {{ csrf_input }}
+  {{ form_fields(form) }}
+  <p class="text-xs text-slate-500">Currently set to {{ threshold }}%.</p>
+  <button type="submit" class="btn-primary">Save</button>
+</form>
+{% endblock %}

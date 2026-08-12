@@ -18,10 +18,11 @@ from .forms import (
     ProfileForm,
     ResetPasswordForm,
     ResetRequestForm,
+    ThresholdForm,
     UserEditForm,
     UserForm,
 )
-from .models import Notification, Role, User
+from .models import AppSetting, Notification, Role, User
 from .permissions import admin_required
 
 
@@ -250,3 +251,16 @@ def import_users(upload):
         created += 1
 
     return {"created": created, "errors": errors}
+
+
+@admin_required
+def settings_view(request):
+    current = AppSetting.attendance_threshold()
+    form = ThresholdForm(request.POST or None, initial={"threshold": current})
+    if request.method == "POST" and form.is_valid():
+        AppSetting.set(AppSetting.ATTENDANCE_THRESHOLD, form.cleaned_data["threshold"])
+        messages.success(request, "Attendance threshold saved.")
+        return redirect("accounts:settings")
+    return render(
+        request, "accounts/settings.html", {"form": form, "threshold": current}
+    )

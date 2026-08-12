@@ -80,3 +80,16 @@ class UserEditForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = USER_FIELDS
+
+
+class ThresholdForm(forms.Form):
+    threshold = forms.IntegerField(
+        min_value=1,
+        max_value=100,
+        label="Minimum attendance percentage",
+        help_text="Students below this figure are flagged and alerted.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        style(self.fields)
