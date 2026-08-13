@@ -9,3 +9,11 @@ media/
 
 # Tailwind CLI binary — downloaded by setup, too large to commit
 tools/tailwindcss
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+.vscode/
+.idea/
+.DS_Store
