@@ -44,6 +44,10 @@ class User(AbstractUser):
             return "".join(p[0] for p in parts).upper()
         return self.username[:2].upper()
 
+    @property
+    def role_name(self):
+        return dict(Role.choices).get(self.role, self.role)
+
 
 class Notification(models.Model):
     recipient = models.ForeignKey(

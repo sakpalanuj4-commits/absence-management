@@ -70,6 +70,10 @@ class PasswordResetCompleteView(auth_views.PasswordResetCompleteView):
     template_name = "accounts/password_reset_complete.html"
 
 
+from accounts.models import User, Role
+from academics.models import Course
+from attendance.models import AttendanceRecord
+
 @login_required
 def dashboard(request):
     if request.user.is_admin:

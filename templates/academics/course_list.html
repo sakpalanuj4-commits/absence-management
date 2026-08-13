@@ -43,7 +43,7 @@
         <td>
           <div class="flex justify-end gap-1">
             <a href="{{ url('academics:session_list', kwargs={'course_pk': course.pk}) }}" class="btn-secondary text-xs">Sessions</a>
-            <a href="{{ url('reports:course_report', kwargs={'course_pk': course.pk}) }}" class="btn-secondary text-xs">Report</a>
+            
             {% if request.user.is_admin %}
               <a href="{{ url('academics:course_edit', kwargs={'pk': course.pk}) }}" class="btn-secondary text-xs">Edit</a>
             {% endif %}
