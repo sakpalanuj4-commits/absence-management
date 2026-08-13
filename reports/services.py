@@ -1,3 +1,8 @@
+# Every attendance figure in the system is calculated here, so the definition
+# stays in one place. The denominator is the number of registers actually taken
+# for the student: cancelled sessions never count, and neither does a session
+# whose register has not been marked yet.
+
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
@@ -22,11 +27,7 @@ def percentage(attended, total):
     return round(attended * 100 / total, 1)
 
 
-def summarise(queryset, sessions=None):
-    """Totals for a set of records.
-
-    Sessions with no record yet count against the student.
-    """
+def summarise(queryset):
     totals = queryset.filter(LIVE_SESSION_FILTER).aggregate(
         total=Count("id"),
         attended=Count("id", filter=ATTENDED_FILTER),
@@ -35,17 +36,13 @@ def summarise(queryset, sessions=None):
         late=Count("id", filter=Q(status=Status.LATE)),
         excused=Count("id", filter=Q(status=Status.EXCUSED)),
     )
-    if sessions is not None:
-        totals["total"] = max(totals["total"], sessions)
     totals["percentage"] = percentage(totals["attended"], totals["total"])
     return totals
 
 
 def student_course_summary(student, course):
-    held = ClassSession.objects.filter(course=course, is_cancelled=False).count()
     return summarise(
-        AttendanceRecord.objects.filter(student=student, session__course=course),
-        sessions=held,
+        AttendanceRecord.objects.filter(student=student, session__course=course)
     )
 
 
@@ -93,16 +90,6 @@ def course_student_rows(course):
     return rows
 
 
-def session_summary(session):
-    return summarise(AttendanceRecord.objects.filter(session=session))
-
-
-def overall_summary(records=None):
-    if records is None:
-        records = AttendanceRecord.objects.all()
-    return summarise(records)
-
-
 def students_below_threshold(courses=None):
     course_qs = Course.objects.filter(is_active=True)
     if courses is not None:
@@ -121,6 +108,16 @@ def students_below_threshold(courses=None):
                 )
     flagged.sort(key=lambda r: r["percentage"])
     return flagged
+
+
+def session_summary(session):
+    return summarise(AttendanceRecord.objects.filter(session=session))
+
+
+def overall_summary(records=None):
+    if records is None:
+        records = AttendanceRecord.objects.all()
+    return summarise(records)
 
 
 def department_rows():
